@@ -1,0 +1,178 @@
+name: Build
+
+# PyInstaller cannot cross-compile, so each platform's build has to happen on
+# that platform. Runs on a version tag, and can be dispatched manually to add
+# builds to a release that already exists.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and upload to"
+        required: true
+        default: "v1.0.0"
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            libxcb-xinerama0 libxcb-cursor0 libdbus-1-3 libasound2 \
+            libgstreamer1.0-0 libgstreamer-plugins-base1.0-0
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check app tests
+
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+          - os: macos-14
+            name: macos-arm64
+          - os: macos-13
+            name: macos-x64
+          - os: ubuntu-22.04
+            name: linux-x64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[build]"
+          pip install pillow
+
+      - name: Generate icons
+        run: python packaging/make_icons.py
+
+      - name: Build
+        run: python build.py --clean
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # -- Windows: a portable zip -------------------------------------
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = "Mediary-${{ steps.version.outputs.version }}-windows-x64.zip"
+          Compress-Archive -Path dist/Mediary -DestinationPath "dist/$name" -CompressionLevel Optimal
+          echo "ASSET=dist/$name" >> $env:GITHUB_ENV
+
+      # -- macOS: a disk image containing the .app ---------------------
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          NAME="Mediary-${{ steps.version.outputs.version }}-${{ matrix.name }}.dmg"
+          # An /Applications symlink makes the drag-to-install gesture obvious.
+          mkdir -p dmg-staging
+          cp -R "dist/Mediary.app" dmg-staging/
+          ln -s /Applications dmg-staging/Applications
+          hdiutil create -volname "Mediary" -srcfolder dmg-staging \
+            -ov -format UDZO "dist/$NAME"
+          echo "ASSET=dist/$NAME" >> "$GITHUB_ENV"
+
+      # -- Linux: an AppImage ------------------------------------------
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          NAME="Mediary-${{ steps.version.outputs.version }}-x86_64.AppImage"
+
+          cp -r dist/Mediary/* packaging/AppDir/usr/bin/
+          cp packaging/icons/mediary.png packaging/AppDir/mediary.png
+          chmod +x packaging/AppDir/AppRun
+
+          curl -sSL -o appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+
+          # GitHub runners have no FUSE, so run appimagetool unpacked.
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
+            packaging/AppDir "dist/$NAME"
+          chmod +x "dist/$NAME"
+          echo "ASSET=dist/$NAME" >> "$GITHUB_ENV"
+
+      - name: Check the artefact exists
+        shell: bash
+        run: |
+          ls -lh "$ASSET"
+          test -s "$ASSET"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mediary-${{ matrix.name }}
+          path: ${{ env.ASSET }}
+          retention-days: 14
+
+      - name: Upload to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" "$ASSET" --clobber

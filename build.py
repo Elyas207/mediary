@@ -28,13 +28,34 @@ IS_WINDOWS = sys.platform.startswith("win")
 IS_MACOS = sys.platform == "darwin"
 
 
+def _generate_icons() -> None:
+    """Render the icon files if they are not already there.
+
+    They are generated from the same geometry as the in-app mark, so the repo
+    does not need to carry binary art and a fresh clone still builds a properly
+    branded installer.
+    """
+    script = ROOT / "packaging" / "make_icons.py"
+    if not script.is_file():
+        return
+    try:
+        subprocess.run([sys.executable, str(script)], cwd=ROOT, check=False)
+    except OSError as exc:
+        print(f"note: could not generate icons ({exc}); continuing with the default")
+
+
 def _icon_argument() -> list:
-    """Use a platform icon if one has been provided."""
+    """Use a platform icon if one is available."""
+    if not (IS_WINDOWS or IS_MACOS):
+        return []
+
     candidate = ICON_DIR / ("mediary.ico" if IS_WINDOWS else "mediary.icns")
-    if IS_WINDOWS or IS_MACOS:
-        if candidate.is_file():
-            return ["--icon", str(candidate)]
-        print(f"note: no icon at {candidate}; using the default")
+    if not candidate.is_file():
+        _generate_icons()
+    if candidate.is_file():
+        return ["--icon", str(candidate)]
+
+    print(f"note: no icon at {candidate}; using the default")
     return []
 
 

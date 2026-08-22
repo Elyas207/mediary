@@ -51,7 +51,24 @@ Launching Mediary a second time while it's already running won't start a duplica
 
 ### Prebuilt
 
-Grab the latest build from [Releases](https://github.com/Elyas207/mediary/releases). You'll still need FFmpeg (see below).
+Builds for all three platforms are on the [Releases](https://github.com/Elyas207/mediary/releases) page. You'll still want FFmpeg either way — see below.
+
+**Windows** — download the zip, extract it anywhere, run `Mediary.exe`. It's portable, so there's no installer. The exe isn't signed, so SmartScreen will warn the first time: More info, then Run anyway.
+
+**macOS** — open the `.dmg` and drag Mediary to Applications. Pick the `arm64` build for Apple Silicon or `x64` for Intel. It isn't notarised, so macOS will refuse to open it on the first try. Either right-click the app and choose Open, or clear the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Mediary.app
+```
+
+**Linux** — download the AppImage, make it executable, run it:
+
+```bash
+chmod +x Mediary-*.AppImage
+./Mediary-*.AppImage
+```
+
+Built on Ubuntu 22.04, so it needs glibc 2.35 or newer. On older distributions, build from source.
 
 ### From source
 
@@ -217,12 +234,16 @@ ruff check app tests                 # lint
 
 ## Building
 
+Release builds happen in CI, because PyInstaller can't cross-compile — each platform has to be built on itself. `.github/workflows/build.yml` runs the test suite on Linux, macOS and Windows, then builds and attaches a zip, two DMGs and an AppImage to the release. It fires on any `v*` tag, and can be dispatched manually against an existing one.
+
+Locally:
+
 ```bash
 pip install -e ".[build]"
 python build.py --clean
 ```
 
-That wraps PyInstaller and writes to `dist/`.
+That wraps PyInstaller and writes to `dist/`. Icons get generated from the app's own artwork on first build, so there's no binary art in the repo.
 
 **Windows** gives you `dist/Mediary/Mediary.exe`. For an installer, run `iscc packaging\mediary.iss` with [Inno Setup](https://jrsoftware.org/isinfo.php).
 

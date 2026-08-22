@@ -56,7 +56,8 @@ cp packaging/icons/mediary.png packaging/AppDir/mediary.png
 appimagetool packaging/AppDir dist/Mediary-1.0.0-x86_64.AppImage
 ```
 
-Get `appimagetool` from https://github.com/AppImage/AppImageKit.
+Get `appimagetool` from https://github.com/AppImage/AppImageKit. CI does this
+automatically — see below.
 
 ## Icons
 
@@ -80,3 +81,29 @@ with Mediary finding it automatically.
 depending on how it was configured, and some builds contain patent-encumbered
 encoders. Shipping a GPL-configured build imposes GPL obligations on your
 distribution. Mediary itself does not bundle FFmpeg for exactly this reason.
+
+## CI builds
+
+`.github/workflows/build.yml` is what produces the release artefacts. PyInstaller
+cannot cross-compile, so each platform builds on its own runner:
+
+| Runner | Produces |
+| --- | --- |
+| `windows-latest` | `Mediary-<version>-windows-x64.zip` |
+| `macos-14` | `Mediary-<version>-macos-arm64.dmg` |
+| `macos-13` | `Mediary-<version>-macos-x64.dmg` |
+| `ubuntu-22.04` | `Mediary-<version>-x86_64.AppImage` |
+
+The test suite and the linter run on Linux, macOS and Windows first; the builds
+only start if all three are green.
+
+Triggered by pushing a `v*` tag, or manually from the Actions tab with the tag
+to build against. Assets are uploaded with `--clobber`, so re-running replaces
+them rather than failing.
+
+Ubuntu 22.04 is deliberate: building against an older glibc keeps the AppImage
+working on more distributions. AppImages are not backwards compatible with
+glibc, so building on a newer runner would narrow who can run it.
+
+Nothing is signed or notarised. Doing that needs an Apple Developer ID and a
+Windows code-signing certificate, plus secrets in the repo.
