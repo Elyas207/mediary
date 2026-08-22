@@ -13,8 +13,19 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QRectF, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QColor, QPainter
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import QSlider, QWidget
+
+try:
+    # QtMultimedia links against the platform's audio stack - PulseAudio on
+    # most Linux systems. A machine without it must still be able to open the
+    # library and everything else; only in-app playback goes away.
+    from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+
+    MULTIMEDIA_AVAILABLE = True
+except ImportError as _multimedia_error:  # pragma: no cover - platform dependent
+    QAudioOutput = QMediaPlayer = None
+    MULTIMEDIA_AVAILABLE = False
+    _MULTIMEDIA_ERROR = str(_multimedia_error)
 
 from app.media.ffmpeg import get_ffmpeg
 from app.ui.theme import Space, get_theme
@@ -186,14 +197,19 @@ class AudioPlayer(QWidget):
         self._path = ""
         self._duration_ms = 0
 
-        self._audio_output = QAudioOutput(self)
-        self._audio_output.setVolume(0.8)
-        self._player = QMediaPlayer(self)
-        self._player.setAudioOutput(self._audio_output)
-        self._player.positionChanged.connect(self._on_position)
-        self._player.durationChanged.connect(self._on_duration)
-        self._player.playbackStateChanged.connect(self._on_state)
-        self._player.errorOccurred.connect(self._on_error)
+        self._audio_output = None
+        self._player = None
+        if MULTIMEDIA_AVAILABLE:
+            self._audio_output = QAudioOutput(self)
+            self._audio_output.setVolume(0.8)
+            self._player = QMediaPlayer(self)
+            self._player.setAudioOutput(self._audio_output)
+            self._player.positionChanged.connect(self._on_position)
+            self._player.durationChanged.connect(self._on_duration)
+            self._player.playbackStateChanged.connect(self._on_state)
+            self._player.errorOccurred.connect(self._on_error)
+        else:
+            log.warning("QtMultimedia is unavailable; in-app playback is disabled")
 
         layout = vbox(self, spacing=Space.sm)
 
@@ -239,6 +255,18 @@ class AudioPlayer(QWidget):
         self._error_label.hide()
         layout.addWidget(self._error_label)
 
+        if not MULTIMEDIA_AVAILABLE:
+            # The waveform still renders (it comes from ffmpeg), so the item is
+            # not a dead panel - only the transport is unavailable.
+            self._play_btn.setEnabled(False)
+            self._volume.setEnabled(False)
+            self._error_label.setProperty("role", "muted")
+            self._error_label.setText(
+                "Audio playback is unavailable on this system. Use Open file to "
+                "play it in your usual player."
+            )
+            self._error_label.show()
+
     # ------------------------------------------------------------------
 
     def set_source(self, path: str) -> None:
@@ -251,13 +279,19 @@ class AudioPlayer(QWidget):
 
         if not path or not Path(path).is_file():
             self._play_btn.setEnabled(False)
+            self._error_label.setProperty("role", "meta")
             self._error_label.setText("The audio file is not available.")
             self._error_label.show()
             return
 
+        # The waveform comes from ffmpeg and is worth drawing even when the
+        # platform cannot play the file back in-app.
+        self._generate_waveform(path)
+        if self._player is None:
+            return
+
         self._play_btn.setEnabled(True)
         self._player.setSource(QUrl.fromLocalFile(str(Path(path))))
-        self._generate_waveform(path)
 
     def _generate_waveform(self, path: str) -> None:
         ffmpeg = get_ffmpeg()
@@ -271,16 +305,19 @@ class AudioPlayer(QWidget):
     # ------------------------------------------------------------------
 
     def toggle(self) -> None:
+        if self._player is None:
+            return
         if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self._player.pause()
         else:
             self._player.play()
 
     def stop(self) -> None:
-        self._player.stop()
+        if self._player is not None:
+            self._player.stop()
 
     def _seek_fraction(self, fraction: float) -> None:
-        if self._duration_ms:
+        if self._player is not None and self._duration_ms:
             self._player.setPosition(int(self._duration_ms * fraction))
 
     def _on_position(self, position_ms: int) -> None:

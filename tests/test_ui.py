@@ -439,3 +439,55 @@ class TestOnboarding:
         assert wizard._commit_folder() is False
         assert wizard._folder_error.isVisible() or wizard._folder_error.text()
         wizard.deleteLater()
+
+
+class TestAudioPlayerDegradation:
+    """QtMultimedia links against the platform audio stack and can be absent.
+
+    On a Linux box without PulseAudio the import fails outright. That must cost
+    the user in-app playback and nothing else - the library, the detail view and
+    the waveform all have to keep working.
+    """
+
+    def test_the_module_imports_without_qtmultimedia(self, qapp, theme):
+        import importlib
+        import sys as _sys
+        from unittest import mock
+
+        real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
+
+        def blocked(name, *args, **kwargs):
+            if name.startswith("PySide6.QtMultimedia"):
+                raise ImportError("libpulse.so.0: cannot open shared object file")
+            return real_import(name, *args, **kwargs)
+
+        module_name = "app.ui.widgets.audio_player"
+        saved = _sys.modules.pop(module_name, None)
+        try:
+            with mock.patch("builtins.__import__", side_effect=blocked):
+                module = importlib.import_module(module_name)
+            assert module.MULTIMEDIA_AVAILABLE is False
+
+            player = module.AudioPlayer()
+            assert player._player is None
+            assert not player._play_btn.isEnabled()
+            # The waveform is produced by ffmpeg, so it must still be present.
+            assert player.waveform is not None
+            player.set_source("")     # must not raise
+            player.toggle()
+            player.stop()
+            player.deleteLater()
+        finally:
+            _sys.modules.pop(module_name, None)
+            if saved is not None:
+                _sys.modules[module_name] = saved
+            else:
+                importlib.import_module(module_name)
+
+    def test_the_detail_view_still_opens_for_audio(self, window, library, make_item, settings):
+        from app.ui.dialogs.media_detail_dialog import MediaDetailDialog
+
+        media_id = library.add(make_item(media_kind="audio", category="Music"))
+        dialog = MediaDetailDialog(library.get(media_id), library, settings, window)
+        assert dialog.windowTitle()
+        dialog.deleteLater()
