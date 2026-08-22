@@ -51,9 +51,11 @@ Build on Apple Silicon for arm64 and on (or under Rosetta for) Intel for x86_64;
 AppImage:
 
 ```bash
-cp -r dist/Mediary/* packaging/AppDir/usr/bin/
-cp packaging/icons/mediary.png packaging/AppDir/mediary.png
-appimagetool packaging/AppDir dist/Mediary-1.0.0-x86_64.AppImage
+mkdir -p build/AppDir/usr/bin
+cp packaging/AppDir/AppRun packaging/AppDir/mediary.desktop build/AppDir/
+cp packaging/icons/mediary.png build/AppDir/mediary.png
+cp -r dist/Mediary/. build/AppDir/usr/bin/
+appimagetool build/AppDir dist/Mediary-1.0.0-x86_64.AppImage
 ```
 
 Get `appimagetool` from https://github.com/AppImage/AppImageKit. CI does this

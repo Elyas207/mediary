@@ -146,17 +146,24 @@ jobs:
         run: |
           NAME="Mediary-${{ steps.version.outputs.version }}-x86_64.AppImage"
 
-          cp -r dist/Mediary/* packaging/AppDir/usr/bin/
-          cp packaging/icons/mediary.png packaging/AppDir/mediary.png
-          chmod +x packaging/AppDir/AppRun
+          # Assemble the AppDir fresh rather than copying into the one in the
+          # repo: git cannot track an empty directory, so usr/bin does not
+          # survive a checkout, and this keeps the source tree clean.
+          APPDIR=build/AppDir
+          rm -rf "$APPDIR"
+          mkdir -p "$APPDIR/usr/bin"
+          cp packaging/AppDir/AppRun "$APPDIR/AppRun"
+          cp packaging/AppDir/mediary.desktop "$APPDIR/mediary.desktop"
+          cp packaging/icons/mediary.png "$APPDIR/mediary.png"
+          cp -r dist/Mediary/. "$APPDIR/usr/bin/"
+          chmod +x "$APPDIR/AppRun"
 
           curl -sSL -o appimagetool \
             "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
           chmod +x appimagetool
 
           # GitHub runners have no FUSE, so run appimagetool unpacked.
-          ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
-            packaging/AppDir "dist/$NAME"
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "dist/$NAME"
           chmod +x "dist/$NAME"
           echo "ASSET=dist/$NAME" >> "$GITHUB_ENV"
 

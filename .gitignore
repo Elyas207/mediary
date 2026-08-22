@@ -21,8 +21,7 @@ htmlcov/
 
 # Packaging inputs that are not ours to distribute
 bin/
-packaging/AppDir/usr/bin/*
-!packaging/AppDir/usr/bin/.gitkeep
+packaging/AppDir/usr/
 
 # Local scratch
 .scratch/
