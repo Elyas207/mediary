@@ -1,0 +1,13 @@
+{
+  "id": "single",
+  "title": "Single Stream Item",
+  "ext": "mp4",
+  "url": "https://cdn.example.com/single.mp4",
+  "height": 720,
+  "width": 1280,
+  "vcodec": "h264",
+  "acodec": "aac",
+  "filesize": 12345678,
+  "extractor_key": "generic",
+  "webpage_url": "https://example.com/page"
+}

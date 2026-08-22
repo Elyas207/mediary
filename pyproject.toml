@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mediary"
+version = "1.0.0"
+description = "Mediary - a personal media downloader, organizer, and creative asset library."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Mediary" }]
+keywords = ["media", "downloader", "library", "yt-dlp", "ffmpeg", "pyside6"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = [
+    "PySide6>=6.6",
+    "yt-dlp>=2024.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-qt>=4.2",
+    "ruff>=0.4",
+]
+build = [
+    "pyinstaller>=6.4",
+]
+
+[project.gui-scripts]
+mediary = "app.main:main"
+
+[project.urls]
+Homepage = "https://github.com/Elyas207/mediary"
+Issues = "https://github.com/Elyas207/mediary/issues"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501", "B008"]

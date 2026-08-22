@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Mediary
+GenericName=Media Library
+Comment=Download, organise and search a personal media library
+Exec=Mediary %U
+Icon=mediary
+Terminal=false
+Categories=AudioVideo;Audio;Video;Utility;
+Keywords=download;media;video;audio;library;yt-dlp;
+StartupWMClass=Mediary

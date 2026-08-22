@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+*.spec
+
+# Environments
+.venv/
+venv/
+env/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Packaging inputs that are not ours to distribute
+bin/
+packaging/AppDir/usr/bin/*
+!packaging/AppDir/usr/bin/.gitkeep
+
+# Local scratch
+.scratch/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Working notes, not part of the project
+dev-prompt.txt

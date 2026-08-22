@@ -19,3 +19,42 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------
+
+THIRD-PARTY COMPONENTS
+
+The MIT licence above covers Mediary's own source code only. Mediary depends
+on, and may be distributed alongside, the following third-party software, each
+under its own licence:
+
+  PySide6 / Qt for Python  -  LGPL v3
+      https://www.qt.io/licensing/
+      Dynamically linked. Users are free to replace the Qt libraries.
+
+  yt-dlp  -  Unlicense (public domain)
+      https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE
+
+  FFmpeg  -  LGPL v2.1 or later, or GPL v2 or later depending on the build
+      https://ffmpeg.org/legal.html
+      FFmpeg is NOT bundled with the Mediary source distribution. If you
+      produce a build that ships an FFmpeg binary, you are responsible for
+      complying with the licence of that specific build, including offering
+      the corresponding source and honouring GPL terms where they apply.
+
+  SQLite  -  Public domain
+      https://www.sqlite.org/copyright.html
+      Provided by the Python standard library.
+
+--------------------------------------------------------------------------
+
+USE OF DOWNLOADED MATERIAL
+
+Mediary is a tool for downloading and organising publicly accessible media.
+Public accessibility does not automatically grant permission to reuse media.
+
+Mediary does not determine, infer or certify the licensing status of anything
+it downloads. Determining whether you have the right to download, store or
+reuse a given piece of media - and complying with the terms of service of the
+site it came from and with applicable copyright law - is solely the
+responsibility of the person using this software.

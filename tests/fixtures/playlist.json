@@ -1,0 +1,18 @@
+{
+  "_type": "playlist",
+  "id": "PL123",
+  "title": "A Playlist",
+  "entries": [
+    {
+      "id": "first",
+      "title": "First Track",
+      "uploader": "Someone",
+      "duration": 61,
+      "ext": "m4a",
+      "extractor_key": "Soundcloud",
+      "webpage_url": "https://soundcloud.com/someone/first",
+      "formats": [{"format_id": "http_mp3", "ext": "mp3", "vcodec": "none", "acodec": "mp3", "abr": 128}]
+    },
+    {"id": "second", "title": "Second Track", "formats": []}
+  ]
+}

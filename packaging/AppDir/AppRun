@@ -1,0 +1,8 @@
+#!/bin/sh
+# AppImage entry point for Mediary.
+HERE="$(dirname "$(readlink -f "${0}")")"
+export PATH="${HERE}/usr/bin:${PATH}"
+# Prefer a bundled FFmpeg if the packager included one, but never shadow a
+# newer copy the user has installed themselves.
+export PATH="${PATH}:${HERE}/usr/bin/bin"
+exec "${HERE}/usr/bin/Mediary" "$@"

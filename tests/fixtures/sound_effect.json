@@ -1,0 +1,20 @@
+{
+  "id": "whoosh123",
+  "title": "Epic Cinematic Whoosh",
+  "uploader": "Example Creator",
+  "channel": "Example Creator",
+  "duration": 12,
+  "ext": "m4a",
+  "extractor_key": "Youtube",
+  "webpage_url": "https://www.youtube.com/watch?v=whoosh123",
+  "upload_date": "20250104",
+  "description": "A cinematic whoosh transition.",
+  "thumbnails": [
+    {"url": "https://img.example.com/whoosh/default.jpg", "width": 120, "height": 90},
+    {"url": "https://img.example.com/whoosh/maxres.jpg", "width": 1280, "height": 720}
+  ],
+  "formats": [
+    {"format_id": "140", "ext": "m4a", "vcodec": "none", "acodec": "mp4a.40.2", "abr": 128, "filesize": 201234},
+    {"format_id": "251", "ext": "webm", "vcodec": "none", "acodec": "opus", "abr": 160, "filesize": 245678}
+  ]
+}

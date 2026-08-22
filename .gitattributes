@@ -1,0 +1,12 @@
+# Normalise line endings so the repo stays consistent across platforms.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.gif binary
+
+# Shipped as-is
+*.iss text eol=crlf
+AppRun text eol=lf

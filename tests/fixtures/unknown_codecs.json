@@ -1,0 +1,13 @@
+{
+  "id": "BigBuckBunny_124",
+  "title": "Big Buck Bunny",
+  "duration": 596.5,
+  "extractor_key": "archiveorg",
+  "webpage_url": "https://archive.org/details/BigBuckBunny_124",
+  "thumbnail": "https://archive.org/download/BigBuckBunny_124/thumb.jpg",
+  "formats": [
+    {"format_id": "0", "ext": "ogv", "height": 300, "width": 533, "vcodec": null, "acodec": null, "filesize": 46935223, "format_note": "derivative"},
+    {"format_id": "1", "ext": "mp4", "height": 360, "width": 640, "vcodec": null, "acodec": null, "filesize": 61878609, "format_note": "derivative"},
+    {"format_id": "2", "ext": "avi", "height": 720, "width": 1280, "vcodec": null, "acodec": null, "filesize": 332243668, "format_note": "derivative"}
+  ]
+}
