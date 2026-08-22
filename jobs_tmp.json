@@ -1,0 +1,850 @@
+{
+  "total_count": 7,
+  "jobs": [
+    {
+      "id": 97047251491,
+      "run_id": 32579760371,
+      "workflow_name": "Build",
+      "head_branch": "v1.0.0",
+      "run_url": "https://api.github.com/repos/Elyas207/mediary/actions/runs/32579760371",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUATdTs8AAAAWmHeKIw",
+      "head_sha": "10130157ab5805337f07d25b8691a7081842164f",
+      "url": "https://api.github.com/repos/Elyas207/mediary/actions/jobs/97047251491",
+      "html_url": "https://github.com/Elyas207/mediary/actions/runs/32579760371/job/97047251491",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-08-22T14:47:45Z",
+      "started_at": "2026-08-22T14:47:48Z",
+      "completed_at": "2026-08-22T14:59:11Z",
+      "name": "Test (windows-latest)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-08-22T14:47:49Z",
+          "completed_at": "2026-08-22T14:47:50Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-08-22T14:47:50Z",
+          "completed_at": "2026-08-22T14:47:55Z"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-08-22T14:47:55Z",
+          "completed_at": "2026-08-22T14:48:01Z"
+        },
+        {
+          "name": "Install Qt runtime libraries",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 4,
+          "started_at": "2026-08-22T14:48:01Z",
+          "completed_at": "2026-08-22T14:48:01Z"
+        },
+        {
+          "name": "Install",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-08-22T14:48:01Z",
+          "completed_at": "2026-08-22T14:48:27Z"
+        },
+        {
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-08-22T14:48:27Z",
+          "completed_at": "2026-08-22T14:48:27Z"
+        },
+        {
+          "name": "Test",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-08-22T14:48:27Z",
+          "completed_at": "2026-08-22T14:59:07Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-08-22T14:59:07Z",
+          "completed_at": "2026-08-22T14:59:08Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-08-22T14:59:08Z",
+          "completed_at": "2026-08-22T14:59:09Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-08-22T14:59:09Z",
+          "completed_at": "2026-08-22T14:59:09Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Elyas207/mediary/check-runs/97047251491",
+      "labels": [
+        "windows-latest"
+      ],
+      "runner_id": 1000000011,
+      "runner_name": "GitHub Actions 1000000011",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 97047251530,
+      "run_id": 32579760371,
+      "workflow_name": "Build",
+      "head_branch": "v1.0.0",
+      "run_url": "https://api.github.com/repos/Elyas207/mediary/actions/runs/32579760371",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUATdTs8AAAAWmHeKSg",
+      "head_sha": "10130157ab5805337f07d25b8691a7081842164f",
+      "url": "https://api.github.com/repos/Elyas207/mediary/actions/jobs/97047251530",
+      "html_url": "https://github.com/Elyas207/mediary/actions/runs/32579760371/job/97047251530",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-08-22T14:47:45Z",
+      "started_at": "2026-08-22T14:47:47Z",
+      "completed_at": "2026-08-22T14:59:11Z",
+      "name": "Test (ubuntu-22.04)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-08-22T14:47:48Z",
+          "completed_at": "2026-08-22T14:47:49Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-08-22T14:47:49Z",
+          "completed_at": "2026-08-22T14:47:50Z"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-08-22T14:47:50Z",
+          "completed_at": "2026-08-22T14:47:54Z"
+        },
+        {
+          "name": "Install Qt runtime libraries",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-08-22T14:47:54Z",
+          "completed_at": "2026-08-22T14:48:16Z"
+        },
+        {
+          "name": "Install",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-08-22T14:48:16Z",
+          "completed_at": "2026-08-22T14:48:30Z"
+        },
+        {
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-08-22T14:48:30Z",
+          "completed_at": "2026-08-22T14:48:30Z"
+        },
+        {
+          "name": "Test",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-08-22T14:48:30Z",
+          "completed_at": "2026-08-22T14:59:09Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-08-22T14:59:09Z",
+          "completed_at": "2026-08-22T14:59:09Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-08-22T14:59:09Z",
+          "completed_at": "2026-08-22T14:59:09Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-08-22T14:59:09Z",
+          "completed_at": "2026-08-22T14:59:09Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Elyas207/mediary/check-runs/97047251530",
+      "labels": [
+        "ubuntu-22.04"
+      ],
+      "runner_id": 1000000010,
+      "runner_name": "GitHub Actions 1000000010",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 97047251606,
+      "run_id": 32579760371,
+      "workflow_name": "Build",
+      "head_branch": "v1.0.0",
+      "run_url": "https://api.github.com/repos/Elyas207/mediary/actions/runs/32579760371",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUATdTs8AAAAWmHeKlg",
+      "head_sha": "10130157ab5805337f07d25b8691a7081842164f",
+      "url": "https://api.github.com/repos/Elyas207/mediary/actions/jobs/97047251606",
+      "html_url": "https://github.com/Elyas207/mediary/actions/runs/32579760371/job/97047251606",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-08-22T14:47:45Z",
+      "started_at": "2026-08-22T14:47:48Z",
+      "completed_at": "2026-08-22T14:55:40Z",
+      "name": "Test (macos-14)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-08-22T14:47:49Z",
+          "completed_at": "2026-08-22T14:47:50Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-08-22T14:47:50Z",
+          "completed_at": "2026-08-22T14:47:51Z"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-08-22T14:47:51Z",
+          "completed_at": "2026-08-22T14:47:58Z"
+        },
+        {
+          "name": "Install Qt runtime libraries",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 4,
+          "started_at": "2026-08-22T14:47:58Z",
+          "completed_at": "2026-08-22T14:47:58Z"
+        },
+        {
+          "name": "Install",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-08-22T14:47:58Z",
+          "completed_at": "2026-08-22T14:48:07Z"
+        },
+        {
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-08-22T14:48:07Z",
+          "completed_at": "2026-08-22T14:48:08Z"
+        },
+        {
+          "name": "Test",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-08-22T14:48:08Z",
+          "completed_at": "2026-08-22T14:55:37Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-08-22T14:55:37Z",
+          "completed_at": "2026-08-22T14:55:37Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-08-22T14:55:37Z",
+          "completed_at": "2026-08-22T14:55:37Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-08-22T14:55:37Z",
+          "completed_at": "2026-08-22T14:55:38Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Elyas207/mediary/check-runs/97047251606",
+      "labels": [
+        "macos-14"
+      ],
+      "runner_id": 1000000012,
+      "runner_name": "GitHub Actions 1000000012",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 97048583078,
+      "run_id": 32579760371,
+      "workflow_name": "Build",
+      "head_branch": "v1.0.0",
+      "run_url": "https://api.github.com/repos/Elyas207/mediary/actions/runs/32579760371",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUATdTs8AAAAWmIvbpg",
+      "head_sha": "10130157ab5805337f07d25b8691a7081842164f",
+      "url": "https://api.github.com/repos/Elyas207/mediary/actions/jobs/97048583078",
+      "html_url": "https://github.com/Elyas207/mediary/actions/runs/32579760371/job/97048583078",
+      "status": "queued",
+      "conclusion": null,
+      "created_at": "2026-08-22T14:59:11Z",
+      "started_at": "2026-08-22T14:59:11Z",
+      "completed_at": null,
+      "name": "Build macos-x64",
+      "steps": [
+
+      ],
+      "check_run_url": "https://api.github.com/repos/Elyas207/mediary/check-runs/97048583078",
+      "labels": [
+        "macos-13"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    {
+      "id": 97048583088,
+      "run_id": 32579760371,
+      "workflow_name": "Build",
+      "head_branch": "v1.0.0",
+      "run_url": "https://api.github.com/repos/Elyas207/mediary/actions/runs/32579760371",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUATdTs8AAAAWmIvbsA",
+      "head_sha": "10130157ab5805337f07d25b8691a7081842164f",
+      "url": "https://api.github.com/repos/Elyas207/mediary/actions/jobs/97048583088",
+      "html_url": "https://github.com/Elyas207/mediary/actions/runs/32579760371/job/97048583088",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-08-22T14:59:11Z",
+      "started_at": "2026-08-22T14:59:14Z",
+      "completed_at": "2026-08-22T15:00:11Z",
+      "name": "Build macos-arm64",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-08-22T14:59:15Z",
+          "completed_at": "2026-08-22T14:59:16Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-08-22T14:59:16Z",
+          "completed_at": "2026-08-22T14:59:18Z"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-08-22T14:59:18Z",
+          "completed_at": "2026-08-22T14:59:24Z"
+        },
+        {
+          "name": "Install Qt runtime libraries",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 4,
+          "started_at": "2026-08-22T14:59:24Z",
+          "completed_at": "2026-08-22T14:59:24Z"
+        },
+        {
+          "name": "Install",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-08-22T14:59:24Z",
+          "completed_at": "2026-08-22T14:59:34Z"
+        },
+        {
+          "name": "Generate icons",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-08-22T14:59:34Z",
+          "completed_at": "2026-08-22T14:59:34Z"
+        },
+        {
+          "name": "Build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-08-22T14:59:34Z",
+          "completed_at": "2026-08-22T14:59:54Z"
+        },
+        {
+          "name": "Determine version",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-08-22T14:59:54Z",
+          "completed_at": "2026-08-22T14:59:54Z"
+        },
+        {
+          "name": "Package (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 9,
+          "started_at": "2026-08-22T14:59:54Z",
+          "completed_at": "2026-08-22T14:59:54Z"
+        },
+        {
+          "name": "Package (macOS)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-08-22T14:59:54Z",
+          "completed_at": "2026-08-22T15:00:01Z"
+        },
+        {
+          "name": "Package (Linux)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 11,
+          "started_at": "2026-08-22T15:00:01Z",
+          "completed_at": "2026-08-22T15:00:01Z"
+        },
+        {
+          "name": "Check the artefact exists",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-08-22T15:00:01Z",
+          "completed_at": "2026-08-22T15:00:01Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-08-22T15:00:01Z",
+          "completed_at": "2026-08-22T15:00:04Z"
+        },
+        {
+          "name": "Upload to the release",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-08-22T15:00:04Z",
+          "completed_at": "2026-08-22T15:00:08Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-08-22T15:00:08Z",
+          "completed_at": "2026-08-22T15:00:08Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28,
+          "started_at": "2026-08-22T15:00:08Z",
+          "completed_at": "2026-08-22T15:00:09Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29,
+          "started_at": "2026-08-22T15:00:09Z",
+          "completed_at": "2026-08-22T15:00:09Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Elyas207/mediary/check-runs/97048583088",
+      "labels": [
+        "macos-14"
+      ],
+      "runner_id": 1000000013,
+      "runner_name": "GitHub Actions 1000000013",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 97048583104,
+      "run_id": 32579760371,
+      "workflow_name": "Build",
+      "head_branch": "v1.0.0",
+      "run_url": "https://api.github.com/repos/Elyas207/mediary/actions/runs/32579760371",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUATdTs8AAAAWmIvbwA",
+      "head_sha": "10130157ab5805337f07d25b8691a7081842164f",
+      "url": "https://api.github.com/repos/Elyas207/mediary/actions/jobs/97048583104",
+      "html_url": "https://github.com/Elyas207/mediary/actions/runs/32579760371/job/97048583104",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-08-22T14:59:11Z",
+      "started_at": "2026-08-22T14:59:14Z",
+      "completed_at": "2026-08-22T15:00:51Z",
+      "name": "Build linux-x64",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-08-22T14:59:15Z",
+          "completed_at": "2026-08-22T14:59:16Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-08-22T14:59:16Z",
+          "completed_at": "2026-08-22T14:59:17Z"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-08-22T14:59:17Z",
+          "completed_at": "2026-08-22T14:59:23Z"
+        },
+        {
+          "name": "Install Qt runtime libraries",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-08-22T14:59:23Z",
+          "completed_at": "2026-08-22T14:59:39Z"
+        },
+        {
+          "name": "Install",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-08-22T14:59:39Z",
+          "completed_at": "2026-08-22T14:59:55Z"
+        },
+        {
+          "name": "Generate icons",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-08-22T14:59:55Z",
+          "completed_at": "2026-08-22T14:59:56Z"
+        },
+        {
+          "name": "Build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-08-22T14:59:56Z",
+          "completed_at": "2026-08-22T15:00:28Z"
+        },
+        {
+          "name": "Determine version",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-08-22T15:00:28Z",
+          "completed_at": "2026-08-22T15:00:28Z"
+        },
+        {
+          "name": "Package (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 9,
+          "started_at": "2026-08-22T15:00:28Z",
+          "completed_at": "2026-08-22T15:00:28Z"
+        },
+        {
+          "name": "Package (macOS)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 10,
+          "started_at": "2026-08-22T15:00:28Z",
+          "completed_at": "2026-08-22T15:00:28Z"
+        },
+        {
+          "name": "Package (Linux)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-08-22T15:00:28Z",
+          "completed_at": "2026-08-22T15:00:40Z"
+        },
+        {
+          "name": "Check the artefact exists",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-08-22T15:00:40Z",
+          "completed_at": "2026-08-22T15:00:40Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-08-22T15:00:40Z",
+          "completed_at": "2026-08-22T15:00:44Z"
+        },
+        {
+          "name": "Upload to the release",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-08-22T15:00:44Z",
+          "completed_at": "2026-08-22T15:00:49Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-08-22T15:00:49Z",
+          "completed_at": "2026-08-22T15:00:49Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28,
+          "started_at": "2026-08-22T15:00:49Z",
+          "completed_at": "2026-08-22T15:00:49Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29,
+          "started_at": "2026-08-22T15:00:49Z",
+          "completed_at": "2026-08-22T15:00:49Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Elyas207/mediary/check-runs/97048583104",
+      "labels": [
+        "ubuntu-22.04"
+      ],
+      "runner_id": 1000000014,
+      "runner_name": "GitHub Actions 1000000014",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 97048583149,
+      "run_id": 32579760371,
+      "workflow_name": "Build",
+      "head_branch": "v1.0.0",
+      "run_url": "https://api.github.com/repos/Elyas207/mediary/actions/runs/32579760371",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUATdTs8AAAAWmIvb7Q",
+      "head_sha": "10130157ab5805337f07d25b8691a7081842164f",
+      "url": "https://api.github.com/repos/Elyas207/mediary/actions/jobs/97048583149",
+      "html_url": "https://github.com/Elyas207/mediary/actions/runs/32579760371/job/97048583149",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-08-22T14:59:11Z",
+      "started_at": "2026-08-22T14:59:16Z",
+      "completed_at": "2026-08-22T15:01:33Z",
+      "name": "Build windows-x64",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-08-22T14:59:18Z",
+          "completed_at": "2026-08-22T14:59:20Z"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-08-22T14:59:20Z",
+          "completed_at": "2026-08-22T14:59:26Z"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-08-22T14:59:26Z",
+          "completed_at": "2026-08-22T14:59:35Z"
+        },
+        {
+          "name": "Install Qt runtime libraries",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 4,
+          "started_at": "2026-08-22T14:59:35Z",
+          "completed_at": "2026-08-22T14:59:35Z"
+        },
+        {
+          "name": "Install",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-08-22T14:59:35Z",
+          "completed_at": "2026-08-22T15:00:16Z"
+        },
+        {
+          "name": "Generate icons",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-08-22T15:00:16Z",
+          "completed_at": "2026-08-22T15:00:17Z"
+        },
+        {
+          "name": "Build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-08-22T15:00:17Z",
+          "completed_at": "2026-08-22T15:01:12Z"
+        },
+        {
+          "name": "Determine version",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-08-22T15:01:12Z",
+          "completed_at": "2026-08-22T15:01:12Z"
+        },
+        {
+          "name": "Package (Windows)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-08-22T15:01:12Z",
+          "completed_at": "2026-08-22T15:01:17Z"
+        },
+        {
+          "name": "Package (macOS)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 10,
+          "started_at": "2026-08-22T15:01:17Z",
+          "completed_at": "2026-08-22T15:01:17Z"
+        },
+        {
+          "name": "Package (Linux)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 11,
+          "started_at": "2026-08-22T15:01:17Z",
+          "completed_at": "2026-08-22T15:01:17Z"
+        },
+        {
+          "name": "Check the artefact exists",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-08-22T15:01:17Z",
+          "completed_at": "2026-08-22T15:01:17Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-08-22T15:01:17Z",
+          "completed_at": "2026-08-22T15:01:20Z"
+        },
+        {
+          "name": "Upload to the release",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-08-22T15:01:20Z",
+          "completed_at": "2026-08-22T15:01:28Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-08-22T15:01:28Z",
+          "completed_at": "2026-08-22T15:01:29Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28,
+          "started_at": "2026-08-22T15:01:29Z",
+          "completed_at": "2026-08-22T15:01:31Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29,
+          "started_at": "2026-08-22T15:01:31Z",
+          "completed_at": "2026-08-22T15:01:31Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Elyas207/mediary/check-runs/97048583149",
+      "labels": [
+        "windows-latest"
+      ],
+      "runner_id": 1000000015,
+      "runner_name": "GitHub Actions 1000000015",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}

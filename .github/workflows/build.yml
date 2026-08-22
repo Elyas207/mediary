@@ -31,8 +31,6 @@ jobs:
         os: [ubuntu-22.04, macos-14, windows-latest]
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-python@v5
         with:
@@ -77,14 +75,16 @@ jobs:
             name: windows-x64
           - os: macos-14
             name: macos-arm64
-          - os: macos-13
+          # GitHub retired the macos-13 image, and jobs targeting it queue
+          # forever rather than failing. macos-15-intel is the current Intel
+          # runner. An arm64 .app will not run on an Intel Mac at all, so this
+          # build is not optional.
+          - os: macos-15-intel
             name: macos-x64
           - os: ubuntu-22.04
             name: linux-x64
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-python@v5
         with:
