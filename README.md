@@ -70,6 +70,15 @@ chmod +x Mediary-*.AppImage
 
 Built on Ubuntu 22.04, so it needs glibc 2.35 or newer. On older distributions, build from source.
 
+**Alpine and other musl systems** — the AppImage won't run there, so there's a separate tarball:
+
+```bash
+tar xzf Mediary-*-linux-x86_64-musl.tar.gz
+./Mediary/Mediary
+```
+
+PySide6 publishes no musl wheels, so this build uses Alpine's own Qt and PySide6 packages. That means `pip install PySide6` won't work on Alpine either — if you're running from source there, install `py3-pyside6` from apk instead.
+
 ### From source
 
 ```bash

@@ -95,6 +95,7 @@ cannot cross-compile, so each platform builds on its own runner:
 | `macos-14` | `Mediary-<version>-macos-arm64.dmg` |
 | `macos-13` | `Mediary-<version>-macos-x64.dmg` |
 | `ubuntu-22.04` | `Mediary-<version>-x86_64.AppImage` |
+| `ubuntu-22.04` + Alpine container | `Mediary-<version>-linux-x86_64-musl.tar.gz` |
 
 The test suite and the linter run on Linux, macOS and Windows first; the builds
 only start if all three are green.
@@ -109,3 +110,27 @@ glibc, so building on a newer runner would narrow who can run it.
 
 Nothing is signed or notarised. Doing that needs an Apple Developer ID and a
 Windows code-signing certificate, plus secrets in the repo.
+
+## The musl build
+
+`packaging/build-musl.sh` builds against musl libc for Alpine and similar
+distributions. Run it yourself with:
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src -e VERSION=1.0.0     alpine:edge sh packaging/build-musl.sh
+```
+
+Two things make this different from the other platforms:
+
+**PySide6 has no musllinux wheels**, only manylinux ones, so `pip install
+PySide6` cannot work on Alpine at all. The script uses Alpine's `py3-pyside6`
+and `qt6-*` packages from apk, and pip supplies only the pure-Python pieces.
+That is why the venv is created with `--system-site-packages` and Mediary itself
+is installed with `--no-deps`.
+
+**The output is a tarball, not an AppImage.** The AppImage runtime is glibc
+based, so shipping one would defeat the point.
+
+In CI the container is driven with `docker run` from a normal Ubuntu runner
+rather than with `container:`. The runner injects a glibc-linked Node into job
+containers, and `actions/checkout` cannot start under musl.

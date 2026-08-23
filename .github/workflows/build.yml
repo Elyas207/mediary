@@ -185,3 +185,52 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ steps.version.outputs.tag }}" "$ASSET" --clobber
+
+  build-musl:
+    # Alpine and other musl distributions cannot run the glibc AppImage, and
+    # PySide6 publishes no musllinux wheels, so this build uses Alpine's own Qt
+    # and PySide6 packages inside a container.
+    #
+    # The container is driven with `docker run` from a normal runner rather than
+    # via `container:`, because the runner injects a glibc-linked Node into job
+    # containers and actions/checkout cannot start under musl.
+    name: Build linux-x64-musl
+    needs: test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build in Alpine
+        run: |
+          docker run --rm \
+            -v "$PWD:/src" -w /src \
+            -e VERSION="${{ steps.version.outputs.version }}" \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            alpine:edge sh packaging/build-musl.sh
+
+      - name: Check the artefact exists
+        run: |
+          ASSET="dist/Mediary-${{ steps.version.outputs.version }}-linux-x86_64-musl.tar.gz"
+          ls -lh "$ASSET"
+          test -s "$ASSET"
+          echo "ASSET=$ASSET" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mediary-linux-x64-musl
+          path: ${{ env.ASSET }}
+          retention-days: 14
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" "$ASSET" --clobber
