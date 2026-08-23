@@ -24,6 +24,7 @@ from app.services.library_service import LibraryService  # noqa: E402
 from app.services.organization_service import OrganizationService  # noqa: E402
 from app.ui.theme import Theme, set_theme  # noqa: E402
 from app.ui.theme.icons import icon_pixmap  # noqa: E402
+from app.ui.theme.motion import set_reduce_motion  # noqa: E402
 from app.utils.logging import configure_logging, get_logger  # noqa: E402
 from app.utils.paths import ensure_app_dirs  # noqa: E402
 from app.utils.single_instance import SingleInstanceGuard  # noqa: E402
@@ -154,7 +155,8 @@ def main(argv: list | None = None) -> int:
     store = get_settings_store()
     settings = store.settings
 
-    theme = Theme(app, settings.theme)
+    set_reduce_motion(settings.reduce_motion)
+    theme = Theme(app, settings.theme, use_system_accent=settings.use_system_accent)
     theme.apply()
     set_theme(theme)
 

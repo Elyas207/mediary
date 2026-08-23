@@ -63,8 +63,10 @@ class DownloadService(QObject):
         info: MediaInfo | None = None,
         *,
         replace_path: str = "",
+        start: bool = True,
     ) -> DownloadTask:
-        task = self._manager.enqueue(url, options, info)
+        """Add a download. ``start=False`` registers it without running it."""
+        task = self._manager.enqueue(url, options, info, start=start)
         if replace_path:
             self._replace_paths[task.id] = replace_path
         return task

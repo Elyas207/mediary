@@ -10,6 +10,9 @@ from app.config.settings import THEME_DARK, THEME_LIGHT, THEME_SYSTEM
 from app.ui.theme import icons
 from app.ui.theme.stylesheet import build_stylesheet
 from app.ui.theme.tokens import DARK, LIGHT, PALETTES, Palette, Radius, Size, Space, Type
+from app.utils.logging import get_logger
+
+log = get_logger("theme")
 
 __all__ = [
     "DARK",
@@ -34,10 +37,17 @@ class Theme(QObject):
 
     changed = Signal(object)   # Palette
 
-    def __init__(self, app: QApplication, preference: str = THEME_SYSTEM) -> None:
+    def __init__(
+        self,
+        app: QApplication,
+        preference: str = THEME_SYSTEM,
+        *,
+        use_system_accent: bool = False,
+    ) -> None:
         super().__init__(app)
         self._app = app
         self._preference = preference
+        self._use_system_accent = use_system_accent
         self._palette = self._resolve(preference)
         try:
             app.styleHints().colorSchemeChanged.connect(self._on_system_scheme_changed)
@@ -62,10 +72,42 @@ class Theme(QObject):
 
     def _resolve(self, preference: str) -> Palette:
         if preference == THEME_DARK:
-            return DARK
-        if preference == THEME_LIGHT:
-            return LIGHT
-        return DARK if self._system_prefers_dark() else LIGHT
+            base = DARK
+        elif preference == THEME_LIGHT:
+            base = LIGHT
+        else:
+            base = DARK if self._system_prefers_dark() else LIGHT
+        return self._apply_system_accent(base)
+
+    def _apply_system_accent(self, base: Palette) -> Palette:
+        """Recolour the palette's accent from the desktop's own accent colour.
+
+        Only the accent family changes - surfaces, text and semantic colours are
+        Mediary's, because a system accent says nothing about those and letting
+        it drive them would wreck contrast.
+        """
+        if not self._use_system_accent:
+            return base
+
+        from dataclasses import replace
+
+        from app.ui.theme.system import accent_variants, usable_accent
+
+        colour = usable_accent(dark=base.name == "dark")
+        if colour is None:
+            return base
+        try:
+            return replace(base, **accent_variants(colour))
+        except Exception:  # noqa: BLE001 - a bad accent must not break theming
+            log.debug("Could not apply the system accent", exc_info=True)
+            return base
+
+    @property
+    def use_system_accent(self) -> bool:
+        return self._use_system_accent
+
+    def set_use_system_accent(self, value: bool) -> None:
+        self._use_system_accent = bool(value)
 
     def _system_prefers_dark(self) -> bool:
         try:

@@ -156,6 +156,24 @@ class WrappedLabel(QLabel):
 
     def setText(self, text: str) -> None:  # noqa: N802 - Qt naming
         super().setText(text)
+        self._apply_height()
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt naming
+        # Re-measure once the stylesheet's font is actually in effect. The
+        # height computed at construction uses the default font and is usually
+        # a line short for anything styled larger.
+        super().showEvent(event)
+        self._apply_height()
+
+    def _apply_height(self) -> None:
+        """Pin the height, rather than trusting the parent to read sizeHint.
+
+        A hint is only advisory: a parent laid out inside a stretch can hand
+        back less and clip the final line. Setting the minimum makes it binding.
+        """
+        height = self.heightForWidth(self._wrap_width)
+        if self.minimumHeight() != height:
+            self.setMinimumHeight(height)
         self.updateGeometry()
 
 

@@ -50,12 +50,14 @@ class MediaCard(QFrame):
     selected = Signal(object)           # MediaItem  (single click)
     favorite_toggled = Signal(object)   # MediaItem
     context_requested = Signal(object, object)   # MediaItem, global QPoint
+    preview_requested = Signal(object)  # MediaItem
 
     def __init__(self, item: MediaItem, *, width: int = 200, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("MediaCard")
         self.item = item
         self._is_selected = False
+        self._is_playing = False
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -73,6 +75,7 @@ class MediaCard(QFrame):
             fallback_icon=_fallback_icon(item),
             parent=self,
         )
+        self.thumb.set_placeholder(item.display_title, _category_color(item))
         self.thumb.set_source(item.thumbnail_path)
         if item.duration:
             self.thumb.set_duration(item.duration)
@@ -181,13 +184,28 @@ class MediaCard(QFrame):
         if event.type() == QEvent.Type.HoverEnter:
             self._favorite_btn.setVisible(True)
             self._favorite_btn.raise_()
+            # A play affordance on the artwork tells the user the tile is
+            # playable without them having to open it to find out.
+            if self.item.exists:
+                self.thumb.set_overlay_icon("play")
         elif event.type() == QEvent.Type.HoverLeave:
             self._favorite_btn.setVisible(self.item.favorite)
+            if not self._is_playing:
+                self.thumb.set_overlay_icon("")
         return super().event(event)
+
+    def set_playing(self, playing: bool) -> None:
+        self._is_playing = playing
+        self.thumb.set_overlay_icon("pause" if playing else "")
+        set_property(self, "playing", "true" if playing else "false")
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt naming
         if event.button() == Qt.MouseButton.LeftButton:
             self.selected.emit(self.item)
+            # Clicking the artwork of an audio tile auditions it; clicking the
+            # text selects. Opening the full detail view is a double-click.
+            if self.item.is_audio and self.item.exists and self.thumb.underMouse():
+                self.preview_requested.emit(self.item)
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt naming
@@ -221,6 +239,7 @@ class MediaRow(QFrame):
     selected = Signal(object)
     favorite_toggled = Signal(object)
     context_requested = Signal(object, object)
+    preview_requested = Signal(object)
 
     def __init__(self, item: MediaItem, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -237,15 +256,25 @@ class MediaRow(QFrame):
 
         # Small square artwork keeps the row scannable without dominating it.
         self.thumb = Thumbnail(
-            radius=4,
+            radius=5,
             aspect=1.0,
             fallback_icon=_fallback_icon(item),
             parent=self,
         )
-        self.thumb.setFixedSize(QSize(30, 30))
+        self.thumb.setFixedSize(QSize(32, 32))
+        self.thumb.set_placeholder(item.display_title, _category_color(item))
         self.thumb.set_source(item.thumbnail_path, max_edge=120)
         self.thumb.set_dimmed(item.file_missing)
         layout.addWidget(self.thumb)
+
+        # Auditioning is the whole point of a sound-effects library, so the
+        # play affordance sits on the row itself rather than behind a modal.
+        self.preview_btn = icon_button(
+            "play", tooltip="Preview", size=13, tone="text",
+            on_click=lambda: self.preview_requested.emit(self.item),
+        )
+        self.preview_btn.setVisible(False)
+        layout.addWidget(self.preview_btn)
 
         # Title + creator stacked in the flexible column.
         title_column = QWidget(self)
@@ -356,6 +385,28 @@ class MediaRow(QFrame):
             return
         self._is_selected = value
         set_property(self, "selected", "true" if value else "false")
+
+    def event(self, event: QEvent) -> bool:
+        # Swap the artwork for a play button while hovering an audio row, so
+        # auditioning a folder of whooshes is one click each.
+        if event.type() == QEvent.Type.HoverEnter and self.item.is_audio and self.item.exists:
+            self.preview_btn.setVisible(True)
+            self.thumb.setVisible(False)
+        elif event.type() == QEvent.Type.HoverLeave:
+            self.preview_btn.setVisible(False)
+            self.thumb.setVisible(True)
+        return super().event(event)
+
+    def set_playing(self, playing: bool) -> None:
+        """Reflect that this row is the one currently being previewed."""
+        theme = get_theme()
+        if theme is None:
+            return
+        self.preview_btn.setIcon(theme.icon("pause" if playing else "play", 13, "text"))
+        if playing:
+            self.preview_btn.setVisible(True)
+            self.thumb.setVisible(False)
+        set_property(self, "playing", "true" if playing else "false")
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt naming
         if event.button() == Qt.MouseButton.LeftButton:

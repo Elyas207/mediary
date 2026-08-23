@@ -262,6 +262,7 @@ class TestDuplicateHandling:
             DownloadOptions(media_kind="audio", category="Music"),
             info,
             replace_path=original.file_path,
+            start=False,        # the suite must never touch the network
         )
         _complete(service, manager, second, _downloaded(tmp_path, "v2.mp3", size=500), info)
 
@@ -367,3 +368,31 @@ class TestThumbnails:
         assert item.thumbnail_path
         assert Path(item.thumbnail_path).is_file()
         assert Path(item.thumbnail_path).parent == thumbnails_dir()
+
+
+def test_no_test_starts_a_real_download(pipeline, tmp_path, monkeypatch):
+    """A guard against the suite quietly acquiring a network dependency.
+
+    DownloadService.queue() starts a worker by default, which is correct in
+    production and wrong in a test. This fails loudly if anything in the suite
+    ever reaches the real downloader again.
+    """
+    service, manager, _library, _settings = pipeline
+
+    started = []
+    monkeypatch.setattr(manager, "_start", lambda task: started.append(task))
+
+    service.queue(
+        "https://example.com/guard",
+        DownloadOptions(media_kind="audio", category="Music"),
+        MediaInfo(url="https://example.com/guard", title="Guard"),
+        start=False,
+    )
+    assert started == [], "queue(start=False) must not launch a worker"
+
+    service.queue(
+        "https://example.com/live",
+        DownloadOptions(media_kind="audio", category="Music"),
+        MediaInfo(url="https://example.com/live", title="Live"),
+    )
+    assert len(started) == 1, "the production default must still start the download"

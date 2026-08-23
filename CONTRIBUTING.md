@@ -20,7 +20,7 @@ pip install -e ".[dev]"
 Verify:
 
 ```bash
-pytest              # 553 tests, all offline
+pytest              # 621 tests, all offline
 ruff check app tests
 python -m app.main
 ```
@@ -69,6 +69,12 @@ it to *both* palettes; a test enforces that they stay in sync.
 **7. Styling lives in `ui/theme/stylesheet.py`,** selected by object name or a
 dynamic Qt property. `setStyleSheet()` on an individual widget is a last resort,
 and only for something genuinely one-off (a scrim over artwork, for instance).
+
+**8. Animation goes through `ui/theme/motion.py`.** Never construct a
+`QPropertyAnimation` directly in a widget. The helpers there carry the shared
+timing vocabulary and, importantly, honour Reduce motion - a hand-rolled
+animation would ignore it. Motion decorates a result and never delays one: if
+the user is waiting on something, do not animate it.
 
 ---
 
@@ -168,6 +174,8 @@ Layout:
 | `test_pipeline.py` | The end-to-end acceptance scenarios |
 | `test_ui.py` | Headless smoke tests for every screen, both themes |
 | `test_startup.py` | Autostart registration, tray, background running, single instance |
+| `test_appearance.py` | Generated artwork, motion, system accent, the preview dock |
+| `test_uninstall.py` | Planning and performing data removal |
 
 Useful fixtures in `conftest.py`: `mediary_home`, `settings`, `store`,
 `database`, `library`, `organizer`, `make_item`, `real_file`, `fixture_info`.

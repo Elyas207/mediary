@@ -22,6 +22,7 @@ from app.models.media import MediaItem
 from app.services.library_service import SORT_LABELS, LibraryQuery, LibraryService
 from app.ui.dialogs.media_detail_dialog import MediaDetailDialog
 from app.ui.theme import Space
+from app.ui.theme.motion import Duration, fade_in, pop_in, stagger
 from app.ui.widgets.common import (
     Chip,
     EmptyState,
@@ -35,6 +36,7 @@ from app.ui.widgets.common import (
     vbox,
 )
 from app.ui.widgets.media_card import MediaCard, MediaRow, MediaRowHeader
+from app.ui.widgets.preview_bar import PreviewBar
 from app.utils.formatting import format_bytes, format_duration
 from app.utils.logging import get_logger
 
@@ -88,6 +90,13 @@ class LibraryView(QWidget):
         root.addWidget(self._build_header())
         root.addWidget(divider())
         root.addWidget(self._build_results(), 1)
+
+        # Docked at the bottom so auditioning never covers the list.
+        self.preview = PreviewBar(self)
+        self.preview.hide()
+        self.preview.open_detail_requested.connect(self.open_detail)
+        self.preview.playing_changed.connect(self._on_preview_state)
+        root.addWidget(self.preview)
 
         self.reload()
 
@@ -409,25 +418,64 @@ class LibraryView(QWidget):
     def _render_grid(self) -> None:
         width = self._settings.grid_thumbnail_size
         self._grid_host.set_preferred_width(width)
+        cards = []
         for item in self._items:
             card = MediaCard(item, width=width, parent=self._grid_host)
             self._wire(card)
             self._grid_host.add_card(card)
             self._widgets[item.id] = card
+            cards.append(card)
         self._grid_host.relayout()
+        # Only the first screenful is worth animating; anything below the fold
+        # would finish its entrance before the user ever scrolls to it.
+        stagger(cards[:18], lambda w, delay: pop_in(w, delay=delay))
 
     def _render_rows(self) -> None:
+        rows = []
         for item in self._items:
             row = MediaRow(item, self._rows_host)
             self._wire(row)
             self._rows_layout.addWidget(row)
             self._widgets[item.id] = row
+            rows.append(row)
+        stagger(rows[:24], lambda w, delay: fade_in(w, delay=delay, duration=Duration.fast))
 
     def _wire(self, widget) -> None:
         widget.activated.connect(self.open_detail)
         widget.selected.connect(self._on_selected)
         widget.favorite_toggled.connect(self._toggle_favorite)
         widget.context_requested.connect(self._show_context_menu)
+        widget.preview_requested.connect(self.preview_item)
+
+    # ------------------------------------------------------------------
+    # Auditioning
+    # ------------------------------------------------------------------
+
+    def preview_item(self, item: MediaItem) -> None:
+        """Play an item in the docked preview bar."""
+        if not item.is_audio:
+            # Video has no in-app player; hand it to the system one.
+            self.open_path_requested.emit(item.file_path)
+            return
+        if not item.exists:
+            return
+        self.preview.preview(item)
+
+    def toggle_preview_selected(self) -> None:
+        """Space bar: audition whatever is selected."""
+        if self._selected_id is None:
+            return
+        item = next((i for i in self._items if i.id == self._selected_id), None)
+        if item is not None and item.is_audio:
+            self.preview_item(item)
+
+    def _on_preview_state(self, item: MediaItem, playing: bool) -> None:
+        widget = self._widgets.get(item.id)
+        if widget is not None and hasattr(widget, "set_playing"):
+            widget.set_playing(playing)
+
+    def stop_preview(self) -> None:
+        self.preview.close_preview()
 
     def _clear_widgets(self) -> None:
         self._grid_host.clear()

@@ -61,6 +61,8 @@ class Settings:
 
     # --- Appearance ------------------------------------------------------
     theme: str = THEME_SYSTEM
+    use_system_accent: bool = True     # follow the desktop's own accent colour
+    reduce_motion: bool = False        # skip animations entirely
     library_view: str = VIEW_GRID
     grid_thumbnail_size: int = 200
     show_queue_panel: bool = True

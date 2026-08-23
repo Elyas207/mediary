@@ -502,6 +502,18 @@ class DownloadView(QWidget):
         self.url_input.textChanged.connect(self._on_input_changed)
         layout.addWidget(self.url_input)
 
+        # The clipboard almost always already holds the URL the user came here
+        # to paste. Offering it directly turns a four-step trip through the
+        # field into one click.
+        self.clipboard_hint = QWidget(card)
+        hint_layout = hbox(self.clipboard_hint, spacing=Space.sm)
+        self._clipboard_btn = button("", variant="link")
+        self._clipboard_btn.clicked.connect(self._use_clipboard)
+        hint_layout.addWidget(self._clipboard_btn)
+        hint_layout.addStretch(1)
+        self.clipboard_hint.hide()
+        layout.addWidget(self.clipboard_hint)
+
         actions = QWidget(card)
         actions_layout = hbox(actions, spacing=Space.sm)
 
@@ -581,6 +593,42 @@ class DownloadView(QWidget):
     def focus_input(self) -> None:
         self.url_input.setFocus()
         self.url_input.selectAll()
+
+    def refresh_clipboard_hint(self) -> None:
+        """Offer whatever URL is on the clipboard, if it is not already listed.
+
+        Called whenever this screen becomes visible. Reading the clipboard is
+        local and passive - nothing is fetched until the user clicks.
+        """
+        text = (QGuiApplication.clipboard().text() or "").strip()
+        urls = parse_urls(text)
+        if not urls:
+            self.clipboard_hint.hide()
+            return
+
+        already = {card.url for card in self._cards.values()}
+        already.update(parse_urls(self.url_input.toPlainText()))
+        fresh = [url for url in urls if url not in already]
+        if not fresh:
+            self.clipboard_hint.hide()
+            return
+
+        self._clipboard_urls = fresh
+        if len(fresh) == 1:
+            self._clipboard_btn.setText(f"Paste {truncate(fresh[0], 58)}")
+        else:
+            self._clipboard_btn.setText(f"Paste {len(fresh)} URLs from your clipboard")
+        self.clipboard_hint.show()
+
+    def _use_clipboard(self) -> None:
+        urls = getattr(self, "_clipboard_urls", [])
+        if not urls:
+            return
+        current = self.url_input.toPlainText().strip()
+        joined = "\n".join(urls)
+        self.url_input.setPlainText(f"{current}\n{joined}" if current else joined)
+        self.clipboard_hint.hide()
+        self.analyze()
 
     def _on_input_changed(self) -> None:
         urls = parse_urls(self.url_input.toPlainText())

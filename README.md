@@ -29,6 +29,10 @@ Mediary/
 
 Everything that lands there gets indexed in SQLite with full-text search across title, filename, creator, tags, category, notes and licence notes. The library has grid and list views, filter chips, favourites, and a detail panel where you can edit metadata and add tags.
 
+Audio auditions in place. Click a tile's artwork or hit space on a selected row and it plays in a dock at the bottom of the window, with a waveform you can scrub. Finding the right whoosh means listening to fifteen of them, and a modal per file would make that unbearable.
+
+Items without cover art — which is most sound effects — get generated artwork instead of a grey rectangle. The colour comes from the category, so the hue tells you what something is before you read the label.
+
 Video comes in MP4, MKV or WebM up to whatever the source has. Audio comes in MP3, M4A, WAV or FLAC, with bitrate options for the lossy ones. The bitrate picker greys out for WAV and FLAC, because a bitrate doesn't mean anything for a lossless container.
 
 ## A note on licensing
@@ -46,6 +50,20 @@ There's a setting to launch Mediary when you sign in, and another to start it hi
 The tray icon is the only way back to a hidden window, so if your desktop doesn't have a system tray those options are disabled rather than leaving you with an unreachable process. On Windows it registers under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; macOS gets a LaunchAgent in `~/Library/LaunchAgents`; Linux gets an XDG autostart entry in `~/.config/autostart`. All per-user, so it never needs admin rights.
 
 Launching Mediary a second time while it's already running won't start a duplicate — it just brings the existing window forward.
+
+## Appearance
+
+Dark and light themes, or follow your desktop. "Follow system" tracks changes live rather than only at startup.
+
+Mediary also picks up your system accent colour by default — the highlight colour from Windows personalisation, macOS appearance settings, or the XDG portal on Linux. Only the accent moves; surfaces and text stay Mediary's, because a system accent says nothing about those and letting it drive them wrecks contrast. If your accent is near-black or near-white the hue is kept and the lightness corrected, so you never end up with invisible buttons. Turn it off in Settings for Mediary's own blue.
+
+There's a **Reduce motion** switch if animations bother you. It's a real off switch, not a shorter duration.
+
+## Uninstalling
+
+Settings › Library data › Remove Mediary's data lists everything the app has put on your machine — settings, the library index, caches, logs — with real sizes and paths, and lets you pick what goes.
+
+Your downloaded media is a separate, unticked entry that needs a typed confirmation. Deleting settings shouldn't quietly take your files with it.
 
 ## Installing
 
@@ -136,6 +154,8 @@ Mediary won't update it behind your back. Settings shows the installed version a
 | Rescan library | `Ctrl+R` | `Cmd+R` |
 | Refresh view | `F5` | `F5` |
 | Remove selected | `Delete` | `Delete` |
+| Audition selected audio | `Space` | `Space` |
+| Close the preview | `Esc` | `Esc` |
 
 ## Where things live
 
@@ -231,7 +251,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-553 tests, all offline. yt-dlp and FFmpeg are mocked or driven from JSON fixtures in `tests/fixtures/`, so the suite passes on a machine with no network and no FFmpeg installed.
+621 tests, all offline. yt-dlp and FFmpeg are mocked or driven from JSON fixtures in `tests/fixtures/`, so the suite passes on a machine with no network and no FFmpeg installed.
 
 They cover URL parsing, filename sanitisation on all three platforms, path generation, duplicate detection, SQLite CRUD and migrations, search, tagging, favourites, settings persistence and corruption recovery, queue state, format selection, metadata normalisation, FFmpeg detection, log redaction, rescan, autostart registration, the tray, the single-instance handoff, the full download pipeline, and a headless pass over every screen in both themes.
 

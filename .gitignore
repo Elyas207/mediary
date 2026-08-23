@@ -33,3 +33,7 @@ desktop.ini
 
 # Working notes, not part of the project
 dev-prompt.txt
+
+# Scratch
+.runid
+.shots/

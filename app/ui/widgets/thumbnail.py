@@ -22,6 +22,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from app.ui.theme import Radius, get_theme
+from app.ui.theme.artwork import glyph_color, glyph_opacity, paint_placeholder
 from app.ui.theme.icons import icon_pixmap
 from app.utils.formatting import format_duration
 
@@ -92,6 +93,9 @@ class Thumbnail(QWidget):
         self._badge_text = ""
         self._overlay_icon = ""
         self._dim = False
+        # Drives the generated placeholder when there is no real artwork.
+        self._art_key = ""
+        self._art_color = ""
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
 
@@ -108,6 +112,17 @@ class Thumbnail(QWidget):
 
     def set_fallback_icon(self, name: str) -> None:
         self._fallback_icon = name
+        self.update()
+
+    def set_placeholder(self, key: str, color: str) -> None:
+        """Seed the generated artwork used when there is no real thumbnail.
+
+        ``key`` should be stable for the item (its title) so the tile looks the
+        same every time; ``color`` is the category accent, so the hue means
+        something rather than being decorative.
+        """
+        self._art_key = key or ""
+        self._art_color = color or ""
         self.update()
 
     def set_duration(self, seconds: float | None) -> None:
@@ -190,16 +205,28 @@ class Thumbnail(QWidget):
         painter.drawPixmap(QRect(int(x), int(y), scaled.width(), scaled.height()), pixmap)
 
     def _paint_fallback(self, painter: QPainter, rect: QRectF, palette) -> None:
+        dark = palette.name == "dark"
+
+        if self._art_key or self._art_color:
+            paint_placeholder(
+                painter, rect, self._art_key, self._art_color or palette.accent, dark=dark
+            )
+            colour = glyph_color(dark)
+            opacity = glyph_opacity()
+        else:
+            colour = palette.text_muted
+            opacity = 0.55
+
         glyph = icon_pixmap(
             self._fallback_icon,
-            palette.text_muted,
-            28,
+            colour,
+            max(20, min(40, int(min(rect.width(), rect.height()) * 0.26))),
             dpr=self.devicePixelRatioF(),
         )
         ratio = glyph.devicePixelRatio() or 1.0
         width = glyph.width() / ratio
         height = glyph.height() / ratio
-        painter.setOpacity(0.55)
+        painter.setOpacity(opacity)
         painter.drawPixmap(
             int(rect.center().x() - width / 2),
             int(rect.center().y() - height / 2),

@@ -60,6 +60,7 @@ class NavButton(QPushButton):
         self.setObjectName("NavItem")
         self.key = key
         self.icon_name = icon_name
+        self._progress = 0.0
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -99,6 +100,39 @@ class NavButton(QPushButton):
 
     def set_count(self, value: int | None) -> None:
         self._count.setText(str(value) if value else "")
+
+    def set_progress(self, fraction: float) -> None:
+        """Show a hairline of progress under this entry.
+
+        Downloads run in the background while the user is somewhere else
+        entirely, so the sidebar carries the only always-visible signal that
+        work is happening.
+        """
+        fraction = max(0.0, min(1.0, fraction))
+        if abs(fraction - self._progress) < 0.005:
+            return
+        self._progress = fraction
+        self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt naming
+        super().paintEvent(event)
+        if self._progress <= 0:
+            return
+        theme = get_theme()
+        if theme is None:
+            return
+
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QColor, QPainter
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        width = (self.width() - Space.sm * 2) * self._progress
+        painter.fillRect(
+            QRectF(Space.sm, self.height() - 3, width, 2),
+            QColor(theme.palette.accent),
+        )
+        painter.end()
 
 
 class Sidebar(QFrame):
@@ -207,6 +241,12 @@ class Sidebar(QFrame):
         button = self._buttons.get("queue")
         if button is not None:
             button.set_count(active or None)
+
+    def set_queue_progress(self, fraction: float) -> None:
+        """Overall download progress, drawn under the Queue entry."""
+        button = self._buttons.get("queue")
+        if button is not None:
+            button.set_progress(fraction)
 
     def set_status_text(self, text: str) -> None:
         self._status.setText(text)

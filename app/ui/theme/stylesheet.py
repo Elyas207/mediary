@@ -701,8 +701,17 @@ QSplitter::handle:hover {{ background: {accent}; }}
     border: 1px solid {border};
     border-radius: {r_lg}px;
 }}
-#MediaCard:hover {{ border-color: {border_strong}; }}
-#MediaCard[selected="true"] {{ border-color: {accent}; }}
+#MediaCard:hover {{
+    background: {hover};
+    border-color: {border_strong};
+}}
+#MediaCard[selected="true"] {{
+    border-color: {accent};
+    background: {selected};
+}}
+#MediaCard[playing="true"] {{
+    border-color: {accent};
+}}
 
 #Thumbnail {{
     background: {thumb_bg};
@@ -714,9 +723,25 @@ QSplitter::handle:hover {{ background: {accent}; }}
 #MediaRow, #QueueRow {{
     background: transparent;
     border-bottom: 1px solid {divider};
+    border-left: 2px solid transparent;
 }}
 #MediaRow:hover, #QueueRow:hover {{ background: {hover}; }}
-#MediaRow[selected="true"] {{ background: {selected}; }}
+#MediaRow[selected="true"] {{
+    background: {selected};
+    border-left-color: {accent};
+}}
+/* The row currently being auditioned stays marked even after focus moves. */
+#MediaRow[playing="true"] {{
+    background: {accent_soft};
+    border-left-color: {accent};
+}}
+
+/* -- Preview dock --------------------------------------------------- */
+
+#PreviewBar {{
+    background: {elevated};
+    border-top: 1px solid {border_strong};
+}}
 
 /* -- Chips and badges ---------------------------------------------- */
 

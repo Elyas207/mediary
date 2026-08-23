@@ -53,6 +53,33 @@ from app.utils.paths import config_dir, data_dir, logs_dir
 log = get_logger("ui.settings")
 
 
+class AccentSwatch(QWidget):
+    """A dot showing the accent colour currently in effect."""
+
+    SIZE = 16
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(QSize(self.SIZE, self.SIZE))
+        self.setToolTip("The accent colour Mediary is using")
+
+    def refresh(self) -> None:
+        self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt naming
+        from PySide6.QtGui import QColor, QPainter
+
+        theme = get_theme()
+        if theme is None:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(theme.palette.accent))
+        painter.drawEllipse(self.rect().adjusted(1, 1, -1, -1))
+        painter.end()
+
+
 class SettingRow(QWidget):
     """One labelled control: title, optional description, control on the right."""
 
@@ -116,6 +143,7 @@ class SettingsView(QWidget):
 
     settings_changed = Signal(list)     # changed keys
     rescan_requested = Signal()
+    uninstall_requested = Signal()
 
     def __init__(
         self,
@@ -383,7 +411,39 @@ class SettingsView(QWidget):
             "theme",
             width=160,
         )
-        group.add(SettingRow("Theme", self._theme_box))
+        group.add(
+            SettingRow(
+                "Theme",
+                self._theme_box,
+                description="Follow system tracks your desktop's light/dark setting live.",
+            )
+        )
+
+        accent_row = QWidget(group)
+        accent_layout = hbox(accent_row, spacing=Space.sm)
+        self._accent_swatch = AccentSwatch(accent_row)
+        accent_layout.addWidget(self._accent_swatch)
+        self._use_system_accent = self._check("use_system_accent")
+        accent_layout.addWidget(self._use_system_accent)
+        group.add(
+            SettingRow(
+                "Use my system accent colour",
+                accent_row,
+                description=(
+                    "Takes the highlight colour from your desktop settings. "
+                    "Turn this off to use Mediary's own blue."
+                ),
+            )
+        )
+
+        self._reduce_motion = self._check("reduce_motion")
+        group.add(
+            SettingRow(
+                "Reduce motion",
+                self._reduce_motion,
+                description="Skip animations and transitions throughout the app.",
+            )
+        )
 
         self._thumb_size = QSpinBox(group)
         self._thumb_size.setRange(140, 340)
@@ -555,6 +615,25 @@ class SettingsView(QWidget):
         )
         group.add(SettingRow("Privacy", privacy, stacked=True))
 
+        uninstall_row = QWidget(group)
+        uninstall_layout = hbox(uninstall_row, spacing=Space.sm)
+        uninstall_layout.addWidget(
+            button("Remove Mediary's data…", variant="danger", size="sm",
+                   on_click=self.uninstall_requested.emit)
+        )
+        uninstall_layout.addStretch(1)
+        group.add(
+            SettingRow(
+                "Uninstall",
+                uninstall_row,
+                description=(
+                    "Delete settings, the library index, caches and logs. Your "
+                    "downloaded media is kept unless you explicitly choose otherwise."
+                ),
+                stacked=True,
+            )
+        )
+
         self._layout.addWidget(group)
 
     # ------------------------------------------------------------------
@@ -607,6 +686,9 @@ class SettingsView(QWidget):
         self._timeout.setValue(settings.socket_timeout)
 
         self._select(self._theme_box, settings.theme)
+        self._use_system_accent.setChecked(settings.use_system_accent)
+        self._reduce_motion.setChecked(settings.reduce_motion)
+        self._accent_swatch.refresh()
         self._thumb_size.setValue(settings.grid_thumbnail_size)
 
         # Read the real OS state rather than trusting the stored flag: the user

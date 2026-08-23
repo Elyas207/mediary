@@ -101,6 +101,24 @@ def _reduce_to_peaks(samples, buckets: int) -> list:
     return peaks
 
 
+def generate_waveform(path: str, callback, *, owner: QObject | None = None) -> bool:
+    """Compute a waveform for ``path`` off the GUI thread.
+
+    Shared by the detail view and the preview dock. Returns False when there is
+    no ffmpeg to decode with, in which case the caller just gets no waveform -
+    the transport still works.
+    """
+    ffmpeg = get_ffmpeg()
+    if not ffmpeg.available or not path:
+        return False
+    worker = _WaveformWorker(path, ffmpeg.path)
+    if owner is not None:
+        worker.signals.setParent(owner)
+    worker.signals.ready.connect(callback)
+    QThreadPool.globalInstance().start(worker)
+    return True
+
+
 class WaveformBar(QWidget):
     """A click- and drag-seekable waveform strip."""
 
@@ -294,13 +312,7 @@ class AudioPlayer(QWidget):
         self._player.setSource(QUrl.fromLocalFile(str(Path(path))))
 
     def _generate_waveform(self, path: str) -> None:
-        ffmpeg = get_ffmpeg()
-        if not ffmpeg.available:
-            return
-        worker = _WaveformWorker(path, ffmpeg.path)
-        worker.signals.setParent(self)
-        worker.signals.ready.connect(self.waveform.set_peaks)
-        QThreadPool.globalInstance().start(worker)
+        generate_waveform(path, self.waveform.set_peaks, owner=self)
 
     # ------------------------------------------------------------------
 

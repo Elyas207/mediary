@@ -12,9 +12,12 @@ from PySide6.QtGui import QDesktopServices, QGuiApplication, QKeySequence, QShor
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QStackedWidget,
+    QTextEdit,
     QWidget,
 )
 
@@ -29,6 +32,7 @@ from app.ui.dialogs.duplicate_dialog import DuplicateDialog
 from app.ui.dialogs.error_dialog import ErrorDialog
 from app.ui.sidebar import NAV_FILTERS, Sidebar
 from app.ui.theme import Theme
+from app.ui.theme.motion import Duration, fade_in, set_reduce_motion
 from app.ui.tray import MediaryTray, tray_available
 from app.ui.views.download_view import DownloadView
 from app.ui.views.library_view import LibraryView
@@ -144,6 +148,7 @@ class MainWindow(QMainWindow):
 
         self.settings_view.settings_changed.connect(self._on_settings_changed)
         self.settings_view.rescan_requested.connect(self._rescan_library)
+        self.settings_view.uninstall_requested.connect(self._open_uninstall)
 
         self._downloads.item_added.connect(self._on_item_added)
         self._downloads.library_changed.connect(self._refresh_counts)
@@ -167,6 +172,8 @@ class MainWindow(QMainWindow):
         bind("Ctrl+J", lambda: self.navigate("queue"))
         bind("Ctrl+R", self._rescan_library)
         bind("F5", self._refresh_current)
+        bind("Space", self._preview_selected)
+        bind("Esc", self._close_preview)
 
     # ------------------------------------------------------------------
     # System tray / background running
@@ -246,22 +253,35 @@ class MainWindow(QMainWindow):
         self.sidebar.set_active(key)
 
         if key == "download":
-            self.stack.setCurrentWidget(self.download_view)
+            self._show_view(self.download_view)
+            self.download_view.refresh_clipboard_hint()
         elif key == "queue":
-            self.stack.setCurrentWidget(self.queue_view)
+            self._show_view(self.queue_view)
         elif key == "settings":
             self.settings_view.reload()
-            self.stack.setCurrentWidget(self.settings_view)
+            self._show_view(self.settings_view)
         elif key == "tags":
             self.tags_view.reload()
-            self.stack.setCurrentWidget(self.tags_view)
+            self._show_view(self.tags_view)
         elif key in NAV_FILTERS:
             self.library_view.apply_nav_filter(key, NAV_FILTERS[key])
-            self.stack.setCurrentWidget(self.library_view)
+            self._show_view(self.library_view)
         else:
-            self.stack.setCurrentWidget(self.download_view)
+            self._show_view(self.download_view)
 
         self._store.set("last_view", key)
+
+    def _show_view(self, widget: QWidget) -> None:
+        """Switch screens with a short cross-fade.
+
+        Instant swaps make the app feel like it jumped rather than moved; a
+        fade is enough to carry the eye without delaying anything, since the
+        widget is already fully built before it animates.
+        """
+        if self.stack.currentWidget() is widget:
+            return
+        self.stack.setCurrentWidget(widget)
+        fade_in(widget, duration=Duration.fast)
 
     def _focus_search(self) -> None:
         current = self.stack.currentWidget()
@@ -272,6 +292,20 @@ class MainWindow(QMainWindow):
         else:
             self.navigate("all")
             self.library_view.focus_search()
+
+    def _preview_selected(self) -> None:
+        """Space auditions the selected item, the way a sound library should."""
+        if self.stack.currentWidget() is not self.library_view:
+            return
+        focused = QApplication.focusWidget()
+        # Never steal the space bar from a text field.
+        if isinstance(focused, (QLineEdit, QPlainTextEdit, QTextEdit)):
+            return
+        self.library_view.toggle_preview_selected()
+
+    def _close_preview(self) -> None:
+        if self.stack.currentWidget() is self.library_view:
+            self.library_view.stop_preview()
 
     def _refresh_current(self) -> None:
         current = self.stack.currentWidget()
@@ -354,6 +388,7 @@ class MainWindow(QMainWindow):
     def _on_queue_changed(self) -> None:
         counts = self._manager.counts()
         self.sidebar.set_queue_badge(counts["active"] + counts["pending"])
+        self.sidebar.set_queue_progress(self._overall_progress())
         active = counts["active"]
         if active:
             self.sidebar.set_status_text(f"{active} downloading")
@@ -361,6 +396,16 @@ class MainWindow(QMainWindow):
             self.sidebar.set_status_text(f"{counts['pending']} queued")
         else:
             self.sidebar.set_status_text("")
+
+    def _overall_progress(self) -> float:
+        """Combined progress of everything still running, 0 when idle."""
+        active = [
+            task for task in self._manager.tasks
+            if task.status.is_active or task.status.is_pending
+        ]
+        if not active:
+            return 0.0
+        return sum(task.progress.percent for task in active) / (len(active) * 100.0)
 
     def _on_service_notice(self, level: str, message: str) -> None:
         self._toast(message, tone=level)
@@ -391,6 +436,38 @@ class MainWindow(QMainWindow):
         self.library_view.reload()
         self._refresh_counts()
 
+    def _open_uninstall(self) -> None:
+        """Let the user clear Mediary's local data."""
+        from app.services.uninstall_service import UninstallService
+        from app.ui.dialogs.uninstall_dialog import UninstallDialog
+
+        dialog = UninstallDialog(
+            UninstallService(self._settings.library_root), self
+        )
+        dialog.finished_uninstall.connect(self._on_uninstalled)
+        dialog.exec()
+
+    def _on_uninstalled(self, result) -> None:
+        if result.failed:
+            detail = "\n".join(f"{label}: {reason}" for label, reason in result.failed)
+            ErrorDialog(
+                title="Some items could not be removed",
+                message=result.summary(),
+                detail=detail,
+                parent=self,
+            ).exec()
+            return
+
+        QMessageBox.information(
+            self,
+            "Data removed",
+            f"{result.summary()}\n\n"
+            "Mediary will now close. Anything you kept is untouched.",
+        )
+        # Settings and the database may be gone; carrying on would recreate
+        # them, which is exactly what the user just asked not to happen.
+        self.quit_application()
+
     def _rescan_library(self) -> None:
         from app.services.rescan_service import RescanService
 
@@ -407,10 +484,14 @@ class MainWindow(QMainWindow):
 
     def _on_settings_changed(self, changed_keys: list) -> None:
         self._settings = self._store.settings
-        if "theme" in changed_keys:
+        if any(k in changed_keys for k in ("theme", "use_system_accent")):
+            self._theme.set_use_system_accent(self._settings.use_system_accent)
             self._theme.apply(self._settings.theme)
             self.sidebar.refresh_theme()
             self.library_view.refresh_theme()
+            self.settings_view.reload()
+        if "reduce_motion" in changed_keys:
+            set_reduce_motion(self._settings.reduce_motion)
         if "concurrent_downloads" in changed_keys:
             self._manager.set_concurrency(self._settings.concurrent_downloads)
         if "ffmpeg_path" in changed_keys:
