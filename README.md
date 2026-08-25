@@ -27,6 +27,10 @@ Mediary/
 └── Other/
 ```
 
+After a while Mediary stops asking you where things go. It watches what you actually do — this creator always ends up in Foley, anything from Instagram ends up in Inspiration — and pre-selects the folder, with a line under the card saying why: "7 of 8 from Studio Kern went to Ambience". If it's wrong, change it. It offers to remember that as a rule, and rules beat everything else it thinks it knows. A fresh library has no history to go on, so it falls back to reading the title and the clip length: a four-second file called "metal whoosh 03" is a sound effect, a four-minute one probably isn't. When nothing in the item points anywhere, it says nothing and uses your default rather than inventing a reason.
+
+It never counts its own guesses as evidence. An item you let through unchallenged carries less weight than one you deliberately filed, so it can't slowly talk itself into a bad habit. Settings → Organisation has the toggle and the full list of rules.
+
 Everything that lands there gets indexed in SQLite with full-text search across title, filename, creator, tags, category, notes and licence notes. The library has grid and list views, filter chips, favourites, and a detail panel where you can edit metadata and add tags.
 
 Audio auditions in place. Click a tile's artwork or hit space on a selected row and it plays in a dock at the bottom of the window, with a waveform you can scrub. Finding the right whoosh means listening to fifteen of them, and a modal per file would make that unbearable.

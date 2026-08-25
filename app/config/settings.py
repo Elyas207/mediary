@@ -45,6 +45,9 @@ class Settings:
     default_video_quality: str = "best"        # best | 2160p ... 360p
     default_audio_format: str = "mp3"          # mp3 | m4a | wav | flac
     default_audio_bitrate: str = "320"         # 128 | 192 | 256 | 320
+    #: Pre-select a category based on your own filing history. Off means the
+    #: default category is used for everything, as before.
+    smart_filing: bool = True
     auto_organize: bool = True
     auto_add_to_library: bool = True
     embed_thumbnails: bool = True

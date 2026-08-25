@@ -16,7 +16,7 @@ from app.utils.logging import get_logger
 
 log = get_logger("db.migrations")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 _V1_STATEMENTS: tuple[str, ...] = (
@@ -170,9 +170,43 @@ def _seed_categories(connection: sqlite3.Connection) -> None:
         )
 
 
+_V2_STATEMENTS: tuple[str, ...] = (
+    # How the category was decided. Smart filing learns from this: a category a
+    # human deliberately chose is far better evidence than one it suggested and
+    # the user simply did not override. Without the distinction the suggester
+    # would train on its own guesses and reinforce them.
+    #
+    # Rows written before this feature keep '' and are read as deliberate,
+    # which is historically accurate - back then every category was hand-picked.
+    "ALTER TABLE media ADD COLUMN category_source TEXT NOT NULL DEFAULT ''",
+
+    # User-authored filing rules. Deterministic, and they always outrank
+    # anything the suggester infers.
+    """
+    CREATE TABLE IF NOT EXISTS filing_rules (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        field         TEXT    NOT NULL,               -- creator|platform|title_contains|url_contains
+        pattern       TEXT    NOT NULL,
+        category      TEXT    NOT NULL,
+        enabled       INTEGER NOT NULL DEFAULT 1,
+        priority      INTEGER NOT NULL DEFAULT 100,
+        times_applied INTEGER NOT NULL DEFAULT 0,
+        created_at    TEXT    NOT NULL DEFAULT ''
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_filing_rules_field ON filing_rules(field, enabled)",
+    # One rule per field+pattern; re-teaching the same thing updates rather
+    # than accumulating duplicates that quietly disagree with each other.
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_filing_rules_match "
+    "ON filing_rules(field, pattern COLLATE NOCASE)",
+    "CREATE INDEX IF NOT EXISTS idx_media_creator ON media(creator COLLATE NOCASE)",
+)
+
+
 #: ``(version, description, statements, post_hook)``
 MIGRATIONS: tuple[tuple[int, str, tuple[str, ...], Callable | None], ...] = (
     (1, "initial schema", _V1_STATEMENTS, _seed_categories),
+    (2, "smart filing: rules and category provenance", _V2_STATEMENTS, None),
 )
 
 

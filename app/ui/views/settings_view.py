@@ -150,12 +150,14 @@ class SettingsView(QWidget):
         store: SettingsStore,
         theme,
         library: LibraryService,
+        filing=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._store = store
         self._theme = theme
         self._library = library
+        self._filing = filing
         self._loading = False
         self._controls: dict = {}
 
@@ -300,6 +302,29 @@ class SettingsView(QWidget):
 
     def _build_organisation(self) -> None:
         group = SettingsGroup("Organisation", self)
+
+        self._smart_filing = self._check("smart_filing")
+        group.add(
+            SettingRow(
+                "Suggest a category for each download",
+                self._smart_filing,
+                description=(
+                    "Learns from where you have filed things before. Off means every "
+                    "download starts in your default category."
+                ),
+            )
+        )
+
+        group.add(
+            SettingRow(
+                "Filing rules",
+                button(
+                    "Manage rules…", variant="subtle", size="sm",
+                    on_click=self._open_filing_rules,
+                ),
+                description="Always file a particular creator or platform in one place.",
+            )
+        )
 
         self._auto_organize = self._check("auto_organize")
         group.add(
@@ -674,6 +699,7 @@ class SettingsView(QWidget):
         self._rebuild_categories(settings.default_media_kind, settings.default_category)
         self._select(self._duplicate_action, settings.duplicate_action)
 
+        self._smart_filing.setChecked(settings.smart_filing)
         self._auto_organize.setChecked(settings.auto_organize)
         self._auto_add.setChecked(settings.auto_add_to_library)
         self._embed_thumbnails.setChecked(settings.embed_thumbnails)
@@ -848,6 +874,14 @@ class SettingsView(QWidget):
             self._ffmpeg_path_label.setText(
                 "Install FFmpeg, or choose the executable manually."
             )
+
+    def _open_filing_rules(self) -> None:
+        """Show every rule Mediary follows, and let the user change them."""
+        if self._filing is None:
+            return
+        from app.ui.dialogs.filing_rules_dialog import open_filing_rules
+
+        open_filing_rules(self._filing, self._library, self._store.settings, self)
 
     def _check_ytdlp(self) -> None:
         """Report the installed version and how to upgrade. Never auto-updates."""

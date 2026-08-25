@@ -6,6 +6,7 @@ This is the only module that issues SQL against ``media``, ``tags`` and
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -53,6 +54,7 @@ _MEDIA_COLUMNS = (
     "video_codec", "audio_codec", "audio_bitrate", "sample_rate",
     "thumbnail_path", "license_type", "license_url",
     "attribution_required", "license_notes", "notes", "favorite", "play_count",
+    "category_source",
 )
 
 
@@ -723,6 +725,163 @@ class LibraryService:
         return self.add(item)
 
     # ------------------------------------------------------------------
+    # Filing: evidence and rules
+    # ------------------------------------------------------------------
+
+    def category_history(
+        self,
+        *,
+        creator: str = "",
+        platform: str = "",
+        media_kind: str = "",
+    ) -> list:
+        """Weighted category counts for matching past downloads.
+
+        Returns ``[(category, weight, raw_count, deliberate_count), ...]``,
+        heaviest first. The weight discounts categories Mediary itself
+        suggested, so the suggester cannot train on its own output - see
+        ``models/filing.SOURCE_WEIGHTS``. ``deliberate_count`` is how many of
+        those the user actually chose, as opposed to simply not correcting.
+        """
+        from app.models.filing import is_deliberate, source_weight
+
+        where: list = []
+        params: list = []
+        if creator:
+            where.append("creator = ? COLLATE NOCASE")
+            params.append(creator)
+        if platform:
+            where.append("platform = ? COLLATE NOCASE")
+            params.append(platform)
+        if media_kind:
+            where.append("media_kind = ?")
+            params.append(media_kind)
+        if not where:
+            return []
+
+        rows = self._db.query(
+            "SELECT category, category_source, COUNT(*) AS n FROM media "
+            f"WHERE {' AND '.join(where)} GROUP BY category, category_source",
+            tuple(params),
+        )
+
+        totals: dict = {}
+        counts: dict = {}
+        deliberate: dict = {}
+        for row in rows:
+            category = row["category"]
+            source = row["category_source"]
+            count = int(row["n"])
+            totals[category] = totals.get(category, 0.0) + source_weight(source) * count
+            counts[category] = counts.get(category, 0) + count
+            if is_deliberate(source):
+                deliberate[category] = deliberate.get(category, 0) + count
+
+        return sorted(
+            (
+                (name, weight, counts[name], deliberate.get(name, 0))
+                for name, weight in totals.items()
+            ),
+            key=lambda entry: entry[1],
+            reverse=True,
+        )
+
+    def title_token_counts(self, media_kind: str = "") -> tuple:
+        """``(token -> {category: weight}, {category: weight}, item_count)``.
+
+        The corpus for the title model. Small enough to compute on demand for a
+        personal library, and the caller caches it between changes.
+        """
+        from app.models.filing import source_weight
+
+        clause = " WHERE media_kind = ?" if media_kind else ""
+        params = (media_kind,) if media_kind else ()
+        rows = self._db.query(
+            f"SELECT title, category, category_source FROM media{clause}", params
+        )
+
+        tokens: dict = {}
+        totals: dict = {}
+        for row in rows:
+            weight = source_weight(row["category_source"])
+            category = row["category"]
+            totals[category] = totals.get(category, 0.0) + weight
+            for token in _tokenise(row["title"]):
+                bucket = tokens.setdefault(token, {})
+                bucket[category] = bucket.get(category, 0.0) + weight
+        return tokens, totals, len(rows)
+
+    # -- Rules ------------------------------------------------------------
+
+    def all_rules(self, *, enabled_only: bool = False) -> list:
+        from app.models.filing import FilingRule
+
+        clause = " WHERE enabled = 1" if enabled_only else ""
+        rows = self._db.query(
+            f"SELECT * FROM filing_rules{clause} ORDER BY priority, id"
+        )
+        return [FilingRule.from_row(row) for row in rows]
+
+    def save_rule(self, rule) -> int:
+        """Create or update a rule. Re-teaching the same match updates it.
+
+        Two rules matching the same thing and disagreeing would make filing
+        depend on row order, so the unique index collapses them instead.
+        """
+        row = rule.to_row()
+        with self._db.write() as connection:
+            if rule.id:
+                row["id"] = rule.id
+                connection.execute(
+                    "UPDATE filing_rules SET field = :field, pattern = :pattern, "
+                    "category = :category, enabled = :enabled, priority = :priority "
+                    "WHERE id = :id",
+                    row,
+                )
+                return int(rule.id)
+
+            cursor = connection.execute(
+                "INSERT INTO filing_rules (field, pattern, category, enabled, priority, "
+                "times_applied, created_at) VALUES (:field, :pattern, :category, "
+                ":enabled, :priority, :times_applied, :created_at) "
+                "ON CONFLICT(field, pattern COLLATE NOCASE) DO UPDATE SET "
+                "category = excluded.category, enabled = 1",
+                row,
+            )
+            if cursor.lastrowid:
+                return int(cursor.lastrowid)
+
+        existing = self._db.query_one(
+            "SELECT id FROM filing_rules WHERE field = ? AND pattern = ? COLLATE NOCASE",
+            (rule.field, rule.pattern),
+        )
+        return int(existing[0]) if existing else 0
+
+    def delete_rule(self, rule_id: int) -> bool:
+        with self._db.write() as connection:
+            connection.execute("DELETE FROM filing_rules WHERE id = ?", (rule_id,))
+        return True
+
+    def set_rule_enabled(self, rule_id: int, enabled: bool) -> bool:
+        with self._db.write() as connection:
+            connection.execute(
+                "UPDATE filing_rules SET enabled = ? WHERE id = ?",
+                (int(bool(enabled)), rule_id),
+            )
+        return True
+
+    def note_rule_applied(self, rule_id: int) -> None:
+        """Count a firing, so the rules screen can show which ones earn their keep."""
+        try:
+            with self._db.write() as connection:
+                connection.execute(
+                    "UPDATE filing_rules SET times_applied = times_applied + 1 WHERE id = ?",
+                    (rule_id,),
+                )
+        except sqlite3.Error:
+            log.debug("Could not record rule %s firing", rule_id)
+
+    # ------------------------------------------------------------------
     # Download history
     # ------------------------------------------------------------------
 
@@ -882,3 +1041,23 @@ __all__ = [
     "KIND_AUDIO",
     "KIND_VIDEO",
 ]
+
+
+#: Words too common to say anything about where an item belongs.
+_STOPWORDS = frozenset({
+    "the", "a", "an", "and", "or", "of", "in", "on", "for", "to", "with",
+    "by", "from", "at", "is", "it", "this", "that", "my", "your", "official",
+    "video", "audio", "hd", "4k", "full", "new", "free", "download", "part",
+    "feat", "ft", "remix", "version", "clip", "sound", "effect", "effects",
+})
+
+
+def _tokenise(text: str) -> set:
+    """Lowercase word tokens from a title, minus noise.
+
+    Numbers go too: "Whoosh 03" and "Whoosh 07" are the same kind of thing, and
+    keeping the digits would just scatter the evidence across many useless
+    tokens.
+    """
+    words = re.findall(r"[^\W\d_]{3,}", (text or "").casefold(), re.UNICODE)
+    return {word for word in words if word not in _STOPWORDS}

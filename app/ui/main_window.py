@@ -26,6 +26,7 @@ from app.downloader.manager import DownloadManager
 from app.media.ffmpeg import get_ffmpeg
 from app.models.download import DownloadTask
 from app.services.download_service import DownloadService
+from app.services.filing_service import FilingService
 from app.services.library_service import LibraryService
 from app.services.organization_service import OrganizationService
 from app.ui.dialogs.duplicate_dialog import DuplicateDialog
@@ -68,6 +69,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(QSize(1020, 660))
 
         self._organizer = OrganizationService(self._settings)
+        self._filing = FilingService(self._library, self._settings)
         self._manager = DownloadManager(self._settings, self)
         self._downloads = DownloadService(
             self._settings, self._manager, self._library, self._organizer, self
@@ -109,11 +111,15 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.stack, 1)
         layout.addWidget(right, 1)
 
-        self.download_view = DownloadView(self._settings, self._manager, self.stack)
+        self.download_view = DownloadView(
+            self._settings, self._manager, self._filing, self.stack
+        )
         self.queue_view = QueueView(self._manager, self.stack)
         self.library_view = LibraryView(self._settings, self._library, self._theme, self.stack)
         self.tags_view = TagsView(self._library, self.stack)
-        self.settings_view = SettingsView(self._store, self._theme, self._library, self.stack)
+        self.settings_view = SettingsView(
+            self._store, self._theme, self._library, self._filing, self.stack
+        )
 
         for widget in (
             self.download_view,
@@ -128,6 +134,8 @@ class MainWindow(QMainWindow):
 
     def _connect(self) -> None:
         self.sidebar.navigate.connect(self.navigate)
+        self.download_view.category_created.connect(self._on_category_created)
+        self.download_view.rules_changed.connect(self._filing.invalidate)
 
         self.download_view.download_requested.connect(self._on_download_requested)
         self.download_view.show_queue_requested.connect(lambda: self.navigate("queue"))
@@ -152,6 +160,8 @@ class MainWindow(QMainWindow):
 
         self._downloads.item_added.connect(self._on_item_added)
         self._downloads.library_changed.connect(self._refresh_counts)
+        # New items change what the title model has learned.
+        self._downloads.library_changed.connect(self._filing.invalidate)
         self._downloads.notice.connect(self._on_service_notice)
 
         self._manager.queue_changed.connect(self._on_queue_changed)
@@ -414,6 +424,11 @@ class MainWindow(QMainWindow):
     # Library
     # ------------------------------------------------------------------
 
+    def _on_category_created(self, name: str) -> None:
+        """Persist a category the user invented on the Download screen."""
+        self._store.save()
+        log.info("Added custom category %r", name)
+
     def _refresh_counts(self) -> None:
         try:
             counts = self._library.kind_counts()
@@ -484,6 +499,7 @@ class MainWindow(QMainWindow):
 
     def _on_settings_changed(self, changed_keys: list) -> None:
         self._settings = self._store.settings
+        self._filing.set_settings(self._settings)
         if any(k in changed_keys for k in ("theme", "use_system_accent")):
             self._theme.set_use_system_accent(self._settings.use_system_accent)
             self._theme.apply(self._settings.theme)

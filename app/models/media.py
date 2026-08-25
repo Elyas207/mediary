@@ -70,6 +70,9 @@ class MediaItem:
     # Classification
     media_kind: str = KIND_VIDEO      # video | audio | other
     category: str = "Video"
+    #: How the category was decided - see models/filing.SOURCE_*. Smart filing
+    #: weights its evidence by this, so it cannot train on its own guesses.
+    category_source: str = ""
 
     # Technical
     duration: float = 0.0
@@ -154,6 +157,7 @@ class MediaItem:
             "downloaded_at": self.downloaded_at or datetime.now().isoformat(timespec="seconds"),
             "media_kind": self.media_kind,
             "category": self.category,
+            "category_source": self.category_source,
             "duration": float(self.duration or 0.0),
             "container": self.container,
             "width": int(self.width or 0),
@@ -191,6 +195,7 @@ class MediaItem:
             downloaded_at=data.get("downloaded_at") or "",
             media_kind=data.get("media_kind") or KIND_OTHER,
             category=data.get("category") or "Other",
+            category_source=data.get("category_source") or "",
             duration=data.get("duration") or 0.0,
             container=data.get("container") or "",
             width=data.get("width") or 0,

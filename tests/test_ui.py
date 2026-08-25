@@ -491,3 +491,277 @@ class TestAudioPlayerDegradation:
         dialog = MediaDetailDialog(library.get(media_id), library, settings, window)
         assert dialog.windowTitle()
         dialog.deleteLater()
+
+
+class TestSmartFilingOnTheCard:
+    """The suggestion has to be visible, correctable and never sticky."""
+
+    @pytest.fixture
+    def card(self, qapp, theme, settings, library):
+        from app.services.filing_service import FilingService
+        from app.ui.views.download_view import AnalysisCard
+
+        return AnalysisCard("r1", "https://example.com/x", settings, FilingService(library, settings))
+
+    @staticmethod
+    def _info(**kwargs):
+        from app.models.download import FormatOption, MediaInfo
+
+        data = {
+            "url": "https://example.com/x",
+            "title": "Untitled",
+            "formats": [
+                FormatOption(format_id="1", ext="mp4", width=1920, height=1080,
+                             vcodec="h264", acodec="aac")
+            ],
+        }
+        data.update(kwargs)
+        return MediaInfo(**data)
+
+    def test_a_confident_suggestion_is_shown_with_its_reason(self, card, library):
+        from app.models.filing import FIELD_CREATOR, FilingRule
+
+        library.save_rule(
+            FilingRule(field=FIELD_CREATOR, pattern="Studio Kern", category="Inspiration")
+        )
+        info = self._info(creator="Studio Kern")
+        card.set_info(info)
+        card.apply_suggestion(card._filing.suggest(info, "video"))
+
+        assert card.options().category == "Inspiration"
+        assert card.suggestion_row.isVisibleTo(card)
+        assert "Inspiration" in card.suggestion_label.fullText()
+
+    def test_no_suggestion_means_no_suggestion_row(self, card):
+        info = self._info(title="Untitled")
+        card.set_info(info)
+        card.apply_suggestion(card._filing.suggest(info, "video"))
+        assert not card.suggestion_row.isVisibleTo(card)
+
+    def test_setting_the_category_in_code_is_not_a_user_choice(self, card):
+        info = self._info(title="Untitled")
+        card.set_info(info)
+        card.options_bar.set_category("Inspiration")
+        assert card.options().category == "Inspiration"
+        assert card.options().category_source != "user"
+
+    def test_choosing_a_category_marks_it_as_the_users(self, card):
+        info = self._info(creator="Studio Kern")
+        card.set_info(info)
+        box = card.options_bar.category_box
+        box.setCurrentIndex(box.findData("Other"))
+
+        assert card.options().category == "Other"
+        assert card.options().category_source == "user"
+
+    def test_a_correction_offers_a_rule_the_user_can_read(self, card):
+        info = self._info(creator="Studio Kern")
+        card.set_info(info)
+        box = card.options_bar.category_box
+        box.setCurrentIndex(box.findData("Other"))
+
+        assert card._rule_btn.isVisibleTo(card)
+        assert "Studio Kern" in card._rule_btn.text()
+
+    def test_accepting_the_offer_saves_the_rule(self, card, library):
+        info = self._info(creator="Studio Kern")
+        card.set_info(info)
+        box = card.options_bar.category_box
+        box.setCurrentIndex(box.findData("Other"))
+        card._create_rule()
+
+        rules = library.all_rules()
+        assert len(rules) == 1
+        assert rules[0].pattern == "Studio Kern"
+        assert rules[0].category == "Other"
+
+    def test_changing_the_defaults_does_not_discard_a_choice(self, card):
+        from app.models.download import DownloadOptions
+
+        info = self._info(creator="Studio Kern")
+        card.set_info(info)
+        box = card.options_bar.category_box
+        box.setCurrentIndex(box.findData("Other"))
+
+        card.apply_defaults(DownloadOptions(category="Video", video_quality="720p"))
+        assert card.options().category == "Other"
+        assert card.options().video_quality == "720p"
+
+    def test_the_new_category_sentinel_is_never_a_category(self, qapp, theme, settings):
+        from app.ui.views.download_view import NEW_CATEGORY, OptionBar
+
+        bar = OptionBar(settings)
+        assert bar.category_box.itemData(bar.category_box.count() - 1) == NEW_CATEGORY
+        assert bar.options().category != NEW_CATEGORY
+
+    def test_an_untouched_suggestion_is_the_one_that_counts(self, card, library):
+        from app.models.filing import FIELD_CREATOR, FilingRule
+
+        library.save_rule(
+            FilingRule(field=FIELD_CREATOR, pattern="Studio Kern", category="Inspiration")
+        )
+        info = self._info(creator="Studio Kern")
+        card.set_info(info)
+        card.apply_suggestion(card._filing.suggest(info, "video"))
+        assert card.accepted_suggestion() is not None
+
+        box = card.options_bar.category_box
+        box.setCurrentIndex(box.findData("Other"))
+        assert card.accepted_suggestion() is None
+
+
+class TestFilingRulesDialog:
+    def test_it_lists_rules_and_deletes_them(self, qapp, theme, settings, library):
+        from app.models.filing import FIELD_CREATOR, FilingRule
+        from app.services.filing_service import FilingService
+        from app.ui.dialogs.filing_rules_dialog import FilingRulesDialog
+
+        library.save_rule(
+            FilingRule(field=FIELD_CREATOR, pattern="Studio Kern", category="Foley")
+        )
+        dialog = FilingRulesDialog(FilingService(library, settings), library, settings)
+        assert dialog._list_layout.count() - 1 == 1
+        assert not dialog._empty.isVisibleTo(dialog)
+
+        dialog._on_deleted(library.all_rules()[0].id)
+        assert library.all_rules() == []
+        assert dialog._list_layout.count() - 1 == 0
+
+    def test_an_empty_list_explains_itself(self, qapp, theme, settings, library):
+        from app.services.filing_service import FilingService
+        from app.ui.dialogs.filing_rules_dialog import FilingRulesDialog
+
+        dialog = FilingRulesDialog(FilingService(library, settings), library, settings)
+        assert dialog._empty.isVisibleTo(dialog)
+
+
+class TestSingleKindSources:
+    """An audio-only source must not end up offering MP4.
+
+    The card locks the kind when the source has no video track, but the
+    screen-level defaults were re-applied afterwards and silently flipped it
+    back - so the switch showed "Audio" while the card downloaded video.
+    """
+
+    @staticmethod
+    def _audio_only():
+        from app.models.download import FormatOption, MediaInfo
+
+        return MediaInfo(
+            url="https://example.com/sfx",
+            title="Metal whoosh 04",
+            duration=2.4,
+            formats=[FormatOption(format_id="1", ext="wav", acodec="pcm_s16le")],
+        )
+
+    @pytest.fixture
+    def card(self, qapp, theme, settings, library):
+        from app.services.filing_service import FilingService
+        from app.ui.views.download_view import AnalysisCard
+
+        return AnalysisCard(
+            "r1", "https://example.com/sfx", settings, FilingService(library, settings)
+        )
+
+    def test_the_defaults_cannot_unlock_the_kind(self, card):
+        from app.models.download import DownloadOptions
+
+        card.set_info(self._audio_only())
+        card.apply_defaults(DownloadOptions(media_kind="video", video_format="mp4"))
+
+        assert card.options_bar.kind.value() == "audio"
+        assert card.options().media_kind == "audio"
+
+    def test_only_audio_formats_are_offered(self, card):
+        from app.models.download import AUDIO_FORMATS, DownloadOptions
+
+        card.set_info(self._audio_only())
+        card.apply_defaults(DownloadOptions(media_kind="video", video_format="mp4"))
+
+        box = card.options_bar.format_box
+        offered = [box.itemData(i) for i in range(box.count())]
+        assert offered == list(AUDIO_FORMATS)
+
+    def test_only_audio_categories_are_offered(self, card):
+        from app.models.category import categories_for_kind
+        from app.models.download import DownloadOptions
+        from app.ui.views.download_view import NEW_CATEGORY
+
+        card.set_info(self._audio_only())
+        card.apply_defaults(DownloadOptions(media_kind="video"))
+
+        box = card.options_bar.category_box
+        offered = [
+            box.itemData(i)
+            for i in range(box.count())
+            if box.itemData(i) not in (None, NEW_CATEGORY)
+        ]
+        assert offered == list(categories_for_kind("audio"))
+
+    def test_an_audio_only_source_is_filed_as_audio(self, card):
+        from app.models.download import DownloadOptions
+
+        info = self._audio_only()
+        card.set_info(info)
+        card.apply_defaults(DownloadOptions(media_kind="video"))
+        card.apply_suggestion(card._filing.suggest(info, card.options_bar.kind.value()))
+
+        assert card.options().category == "Sound Effects"
+
+
+class TestInventingACategory:
+    """The "New category…" entry, which is a combo item that is not a category."""
+
+    @pytest.fixture
+    def bar(self, qapp, theme, settings):
+        from app.ui.views.download_view import OptionBar
+
+        return OptionBar(settings)
+
+    @staticmethod
+    def _pick_new(bar, typed, accepted=True):
+        from unittest.mock import patch
+
+        with patch(
+            "app.ui.views.download_view.QInputDialog.getText",
+            return_value=(typed, accepted),
+        ):
+            bar.category_box.setCurrentIndex(bar.category_box.count() - 1)
+
+    def test_a_new_name_becomes_the_selected_category(self, bar, settings):
+        created = []
+        bar.category_created.connect(created.append)
+        self._pick_new(bar, "B-Roll")
+
+        assert bar.options().category == "B-Roll"
+        assert created == ["B-Roll"]
+        assert settings.custom_categories == ["B-Roll"]
+
+    def test_the_same_name_in_another_case_is_the_same_folder(self, bar, settings):
+        self._pick_new(bar, "B-Roll")
+        self._pick_new(bar, "b-roll")
+
+        assert bar.options().category == "B-Roll"
+        assert settings.custom_categories == ["B-Roll"]
+
+    def test_cancelling_restores_the_previous_choice(self, bar, settings):
+        self._pick_new(bar, "B-Roll")
+        self._pick_new(bar, "", accepted=False)
+
+        assert bar.options().category == "B-Roll"
+        assert settings.custom_categories == ["B-Roll"]
+
+    def test_a_name_with_nothing_usable_in_it_cancels(self, bar, settings):
+        """Punctuation alone must not become a folder called "Untitled"."""
+        self._pick_new(bar, "B-Roll")
+        self._pick_new(bar, "///")
+
+        assert bar.options().category == "B-Roll"
+        assert settings.custom_categories == ["B-Roll"]
+
+    def test_the_sentinel_stays_at_the_bottom(self, bar):
+        from app.ui.views.download_view import NEW_CATEGORY
+
+        self._pick_new(bar, "B-Roll")
+        last = bar.category_box.count() - 1
+        assert bar.category_box.itemData(last) == NEW_CATEGORY

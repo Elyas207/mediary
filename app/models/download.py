@@ -81,6 +81,9 @@ class DownloadOptions:
     audio_format: str = "mp3"
     audio_bitrate: str = "320"
     category: str = "Video"
+    #: How the category was arrived at - see models/filing.SOURCE_*. Carried
+    #: through so the library records it and smart filing can weight it later.
+    category_source: str = ""
     format_id: str = ""                  # explicit yt-dlp format, when picked
     embed_thumbnail: bool = True
     embed_metadata: bool = True

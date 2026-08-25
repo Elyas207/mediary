@@ -8,12 +8,16 @@ defaults and every analysed item can still override them individually.
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
     QPlainTextEdit,
     QScrollArea,
     QWidget,
@@ -46,9 +50,17 @@ from app.ui.widgets.common import (
     vbox,
 )
 from app.ui.widgets.thumbnail import Thumbnail
+from app.utils.filenames import sanitize_component
 from app.utils.formatting import format_bytes, format_date, format_duration, truncate
+from app.utils.logging import get_logger
+
+log = get_logger("ui.download")
 
 KIND_OPTIONS = (("video", "Video", "video"), ("audio", "Audio", "audio"))
+
+#: Sentinel item data for the "New category…" entry. Never a real category
+#: name, and never written anywhere.
+NEW_CATEGORY = "mediary:new-category"
 
 
 class OptionBar(QWidget):
@@ -59,6 +71,12 @@ class OptionBar(QWidget):
     """
 
     changed = Signal()
+    #: Emitted only when a person changes the category, never when the list is
+    #: rebuilt or set programmatically - otherwise every kind switch would look
+    #: like a deliberate override.
+    category_edited = Signal()
+    #: A category the user invented here, for the app to persist.
+    category_created = Signal(str)
 
     def __init__(
         self,
@@ -72,6 +90,10 @@ class OptionBar(QWidget):
         self._compact = compact
         self._available_qualities: list = list(("best", "2160p", "1440p", "1080p", "720p", "480p", "360p"))
         self._updating = False
+        #: The last real category, so cancelling “New category…” can go back.
+        self._last_category = ""
+        #: Set when the source offers only one kind, so nothing may switch it.
+        self._kind_locked = ""
 
         layout = hbox(self, spacing=Space.sm)
 
@@ -167,8 +189,39 @@ class OptionBar(QWidget):
         self.category_box.clear()
         for name in categories_for_kind(kind, self._settings.custom_categories):
             self.category_box.addItem(name, name)
+        self.category_box.insertSeparator(self.category_box.count())
+        self.category_box.addItem("New category…", NEW_CATEGORY)
         if current:
             self._select(self.category_box, current)
+
+    def _on_new_category(self) -> None:
+        """Let the user invent a folder without leaving the card."""
+        name, accepted = QInputDialog.getText(
+            self, "New category", "Folder name:", QLineEdit.EchoMode.Normal, ""
+        )
+        # An empty fallback rather than "Untitled": a name made entirely of
+        # punctuation should cancel, not quietly create a folder the user never
+        # asked for.
+        name = sanitize_component(name.strip(), fallback="") if accepted else ""
+        previous = self._last_category or self._settings.default_category
+        if not name:
+            self.set_category(previous)
+            return
+        existing = categories_for_kind(self.kind.value(), self._settings.custom_categories)
+        match = next((c for c in existing if c.casefold() == name.casefold()), "")
+        if match:
+            # Re-typing a folder that already exists is not a new folder, and a
+            # second entry differing only in case would file to the same place.
+            name = match
+        else:
+            self._settings.custom_categories.append(name)
+            self.category_created.emit(name)
+            self._updating = True
+            self._rebuild_category_options(self.kind.value())
+            self._updating = False
+        self.set_category(name)
+        self.category_edited.emit()
+        self.changed.emit()
 
     def set_available_qualities(self, qualities: list) -> None:
         """Restrict the resolution list to what the source actually offers."""
@@ -178,11 +231,39 @@ class OptionBar(QWidget):
             self._rebuild_quality_options()
             self._updating = False
 
+    def set_category(self, name: str) -> None:
+        """Select a category programmatically, without it reading as an edit."""
+        was_updating = self._updating
+        self._updating = True
+        index = self.category_box.findData(name)
+        if index < 0:
+            # Keep an unlisted name above the "New category…" sentinel.
+            index = max(0, self.category_box.count() - 2)
+            self.category_box.insertItem(index, name, name)
+        self.category_box.setCurrentIndex(index)
+        self._last_category = name
+        self._updating = was_updating
+
     def set_kind_locked(self, kind: str) -> None:
-        """Hide the kind switch when a source offers only audio or only video."""
+        """Hide the kind switch when a source offers only audio or only video.
+
+        ``set_value`` does not emit, so the format and category lists have to be
+        rebuilt here - otherwise an audio-only source would still be offering
+        MP4 and video categories.
+        """
+        self._kind_locked = kind
+        self._updating = True
         self.kind.set_value(kind)
+        self._rebuild_format_options(kind)
+        self._rebuild_category_options(kind)
+        self._select(self.category_box, self._settings.default_category)
+        if self.category_box.currentData() in (None, NEW_CATEGORY):
+            self.category_box.setCurrentIndex(0)
+        self._last_category = self.category_box.currentData()
+        self._updating = False
         for value, _, _ in KIND_OPTIONS:
             self.kind.set_option_visible(value, value == kind)
+        self._emit_changed()
 
     @staticmethod
     def _select(box: QComboBox, text: str) -> None:
@@ -199,6 +280,12 @@ class OptionBar(QWidget):
     def _emit_changed(self, *_args) -> None:
         if self._updating:
             return
+        if self.sender() is self.category_box:
+            if self.category_box.currentData() == NEW_CATEGORY:
+                self._on_new_category()
+                return
+            self._last_category = self.category_box.currentData()
+            self.category_edited.emit()
         if self.sender() is self.format_box:
             self._updating = True
             self._rebuild_quality_options()
@@ -227,6 +314,14 @@ class OptionBar(QWidget):
         )
 
     def apply_options(self, options: DownloadOptions) -> None:
+        """Take the screen-level defaults.
+
+        A locked kind wins: the source only offers one, so the defaults bar
+        asking for the other would leave the card offering formats that cannot
+        be produced.
+        """
+        if self._kind_locked and options.media_kind != self._kind_locked:
+            options = replace(options, media_kind=self._kind_locked)
         self._updating = True
         self.kind.set_value(options.media_kind)
         self._rebuild_format_options(options.media_kind)
@@ -252,12 +347,15 @@ class AnalysisCard(QFrame):
 
     removed = Signal(str)          # request id
     changed = Signal()
+    rule_created = Signal()
+    resuggest_requested = Signal(str)   # request id
 
     def __init__(
         self,
         request_id: str,
         url: str,
         settings: Settings,
+        filing=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -268,6 +366,14 @@ class AnalysisCard(QFrame):
         self.error = ""
         self.error_detail = ""
         self._settings = settings
+        self._filing = filing
+        self._suggestion = None
+        self._pending_rule = None
+        #: Set once the user picks a category themselves. From then on nothing
+        #: else may change it.
+        self._category_touched = False
+        self._applying = False
+        self._kind = settings.default_media_kind
 
         layout = hbox(self, spacing=Space.md, margins=(Space.md, Space.md, Space.md, Space.md))
 
@@ -295,9 +401,26 @@ class AnalysisCard(QFrame):
         # -- Options (hidden until analysis succeeds) ----------------------
         self.options_bar = OptionBar(settings, compact=True, parent=self)
         self.options_bar.changed.connect(self._on_options_changed)
+        self.options_bar.category_edited.connect(self._on_category_changed)
         self.options_bar.hide()
         column.addSpacing(Space.xs)
         column.addWidget(self.options_bar)
+
+        # Why this is going where it is going. A suggestion the user cannot
+        # audit is one they cannot trust, so the evidence sits right here.
+        self.suggestion_row = QWidget(self)
+        suggestion_layout = hbox(self.suggestion_row, spacing=Space.xs)
+        self.suggestion_icon = QLabel(self.suggestion_row)
+        self.suggestion_icon.setFixedSize(QSize(12, 12))
+        suggestion_layout.addWidget(self.suggestion_icon, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.suggestion_label = ElidedLabel("", "muted", parent=self.suggestion_row)
+        suggestion_layout.addWidget(self.suggestion_label, 1)
+        self._rule_btn = button("", variant="link", size="sm")
+        self._rule_btn.clicked.connect(self._create_rule)
+        self._rule_btn.hide()
+        suggestion_layout.addWidget(self._rule_btn)
+        self.suggestion_row.hide()
+        column.addWidget(self.suggestion_row)
 
         self.destination = ElidedLabel("", "mono", parent=self)
         self.destination.hide()
@@ -373,16 +496,121 @@ class AnalysisCard(QFrame):
         return self.info is not None and not self.error
 
     def options(self) -> DownloadOptions:
-        return self.options_bar.options()
+        chosen = self.options_bar.options()
+        chosen.category_source = self._category_source()
+        return chosen
+
+    def _category_source(self) -> str:
+        """Provenance for the category this card will download with."""
+        from app.models.filing import SOURCE_DEFAULT, SOURCE_USER
+
+        if self._category_touched:
+            return SOURCE_USER
+        if self._suggestion is not None and self._suggestion.is_confident:
+            return self._suggestion.source
+        return SOURCE_DEFAULT
 
     def apply_defaults(self, options: DownloadOptions) -> None:
-        if self.is_ready:
+        """Take format and quality from the defaults bar.
+
+        The *category* is deliberately excluded once this card has one of its
+        own. Changing the defaults must never silently discard a per-item
+        choice - or a suggestion the user has already read and accepted.
+        """
+        if not self.is_ready:
+            return
+
+        keep_category = self._category_touched or (
+            self._suggestion is not None and self._suggestion.is_confident
+        )
+        current = self.options_bar.options().category if keep_category else ""
+
+        self._applying = True
+        try:
             self.options_bar.apply_options(options)
-            self._refresh_destination()
+            if keep_category and current:
+                self.options_bar.set_category(current)
+        finally:
+            self._applying = False
+        self._refresh_destination()
+
+    # -- Suggestion -------------------------------------------------------
+
+    def apply_suggestion(self, suggestion) -> None:
+        """Pre-select where Mediary thinks this belongs, and say why."""
+        self._suggestion = suggestion
+        if suggestion is None or not suggestion.is_confident:
+            self.suggestion_row.hide()
+            return
+
+        self.options_bar.set_category(suggestion.category)
+        self._show_suggestion_text(suggestion.reason)
+        self._rule_btn.hide()
+        self.suggestion_row.show()
+        self._refresh_destination()
+
+    def accepted_suggestion(self):
+        """The suggestion this card is about to download with, if any.
+
+        ``None`` once the user has picked a category themselves - their choice
+        is not evidence that the suggestion was right.
+        """
+        if not self.is_ready or self._category_touched:
+            return None
+        if self._suggestion is None or not self._suggestion.is_confident:
+            return None
+        return self._suggestion
+
+    def _show_suggestion_text(self, text: str) -> None:
+        theme = get_theme()
+        if theme is not None:
+            self.suggestion_icon.setPixmap(theme.pixmap("sparkle", 12, "accent"))
+        self.suggestion_label.setText(text)
+
+    def _on_category_changed(self) -> None:
+        """The user overrode the suggestion - offer to make it permanent."""
+        if not self.is_ready or self._applying:
+            return
+        self._category_touched = True
+        self._pending_rule = None
+
+        chosen = self.options_bar.options().category
+        self._show_suggestion_text("Using your choice")
+        self.suggestion_row.show()
+
+        offer = None
+        if self._filing is not None and self.info is not None:
+            offer = self._filing.rule_offer(self.info, chosen)
+        if offer is None:
+            self._rule_btn.hide()
+            return
+
+        self._pending_rule = offer
+        self._rule_btn.setText(f"Always use {chosen} for {offer.pattern}")
+        self._rule_btn.setEnabled(True)
+        self._rule_btn.show()
+
+    def _create_rule(self) -> None:
+        if self._filing is None or self._pending_rule is None:
+            return
+        self._filing.save_rule(self._pending_rule)
+        self._rule_btn.setText("Rule saved")
+        self._rule_btn.setEnabled(False)
+        self.rule_created.emit()
 
     # -- Helpers -----------------------------------------------------------
 
     def _on_options_changed(self) -> None:
+        # Audio and video have different category sets, so a video suggestion
+        # is meaningless once the user switches this card to audio.
+        kind = self.options_bar.kind.value()
+        if kind != self._kind and not self._category_touched:
+            self._kind = kind
+            self._suggestion = None
+            self.suggestion_row.hide()
+            self.resuggest_requested.emit(self.request_id)
+        else:
+            self._kind = kind
         self._refresh_destination()
         self.changed.emit()
 
@@ -427,16 +655,22 @@ class DownloadView(QWidget):
     #: ``(url, DownloadOptions, MediaInfo)`` for each item the user confirmed.
     download_requested = Signal(list)
     show_queue_requested = Signal()
+    #: A filing rule was created or changed from a card.
+    rules_changed = Signal()
+    #: A category the user invented, for the app to persist.
+    category_created = Signal(str)
 
     def __init__(
         self,
         settings: Settings,
         manager,
+        filing=None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._settings = settings
         self._manager = manager
+        self._filing = filing
         self._cards: dict = {}
         self._pending = 0
 
@@ -539,6 +773,7 @@ class DownloadView(QWidget):
         layout = hbox(self._defaults_row, spacing=Space.md)
         layout.addWidget(label("DEFAULTS", "fieldLabel"))
         self.default_options = OptionBar(self._settings, parent=self._defaults_row)
+        self.default_options.category_created.connect(self.category_created.emit)
         self.default_options.changed.connect(self._apply_defaults_to_cards)
         layout.addWidget(self.default_options, 1)
         self._content_layout.addWidget(self._defaults_row)
@@ -659,9 +894,14 @@ class DownloadView(QWidget):
 
         for url in new_urls:
             request_id = uuid.uuid4().hex
-            card = AnalysisCard(request_id, url, self._settings, self._results)
+            card = AnalysisCard(
+                request_id, url, self._settings, self._filing, self._results
+            )
             card.removed.connect(self._remove_card)
             card.changed.connect(self._refresh_footer)
+            card.rule_created.connect(self.rules_changed.emit)
+            card.resuggest_requested.connect(self._on_resuggest)
+            card.options_bar.category_created.connect(self.category_created.emit)
             self._results_layout.addWidget(card)
             self._cards[request_id] = card
             self._pending += 1
@@ -676,6 +916,7 @@ class DownloadView(QWidget):
         if card is not None:
             card.set_info(info)
             card.apply_defaults(self.default_options.options())
+            self._suggest_for(card, info)
             self._fetch_thumbnail(card, info)
         if self._pending == 0:
             self._set_busy(False)
@@ -691,6 +932,25 @@ class DownloadView(QWidget):
         if self._pending == 0:
             self._set_busy(False)
         self._refresh_footer()
+
+    def _on_resuggest(self, request_id: str) -> None:
+        card = self._cards.get(request_id)
+        if card is not None and card.info is not None:
+            self._suggest_for(card, card.info)
+
+    def _suggest_for(self, card: AnalysisCard, info: MediaInfo) -> None:
+        """Ask where this belongs, if smart filing is on."""
+        if self._filing is None or not getattr(self._settings, "smart_filing", True):
+            return
+        kind = card.options_bar.kind.value() or self._settings.default_media_kind
+        try:
+            suggestion = self._filing.suggest(
+                info, kind, default_category=self._settings.default_category
+            )
+        except Exception:  # noqa: BLE001 - a suggestion is never worth a crash
+            log.exception("Could not suggest a category for %s", card.url)
+            return
+        card.apply_suggestion(suggestion)
 
     def _fetch_thumbnail(self, card: AnalysisCard, info: MediaInfo) -> None:
         """Download the preview image in the background, if there is one."""
@@ -759,10 +1019,24 @@ class DownloadView(QWidget):
         ]
         if not requests:
             return
+        self._note_rules_used()
         self.download_requested.emit(requests)
         for card in list(self._cards.values()):
             if card.is_ready:
                 self._remove_card(card.request_id)
+
+    def _note_rules_used(self) -> None:
+        """Count a rule as used only when a download actually goes out with it.
+
+        Counting at suggestion time would inflate the number every time an item
+        was analysed and then removed.
+        """
+        if self._filing is None:
+            return
+        for card in self._cards.values():
+            suggestion = card.accepted_suggestion()
+            if suggestion is not None:
+                self._filing.note_applied(suggestion)
 
     # -- Notices ----------------------------------------------------------
 

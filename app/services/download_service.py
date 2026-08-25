@@ -194,6 +194,7 @@ class DownloadService(QObject):
             downloaded_at=datetime.now().isoformat(timespec="seconds"),
             media_kind=media_kind,
             category=options.category,
+            category_source=options.category_source,
             duration=probe.get("duration") or info.duration or 0.0,
             container=extension,
             width=probe.get("width", 0),
