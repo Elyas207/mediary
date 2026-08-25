@@ -512,3 +512,149 @@ class TestWrappedCopy:
         state.show()
         assert state._body.height() >= state._body.heightForWidth(state.TEXT_WIDTH)
         state.deleteLater()
+
+
+class TestAnimationsDoNotBreakTheUi:
+    """Regression guard: animations must never leave the interface invisible.
+
+    Two real bugs live behind these. A QPropertyAnimation with no parent is
+    garbage-collected the instant the helper returns, so Qt destroys it
+    mid-flight and the widget stays frozen at its *start* value - every fade-in
+    became permanently invisible. And a QGraphicsOpacityEffect forces offscreen
+    rendering for as long as it is installed, which blanks a scroll area's
+    viewport even at full opacity, so the effect has to be removed afterwards.
+
+    Every test here runs with motion ON and waits real time. The original
+    screenshots were all taken with motion disabled, which is exactly why none
+    of this was caught.
+    """
+
+    SETTLE_MS = 900
+
+    @pytest.fixture(autouse=True)
+    def motion_on(self):
+        from app.ui.theme import motion
+
+        motion.set_reduce_motion(False)
+        yield
+        motion.set_reduce_motion(False)
+
+    @staticmethod
+    def _settle(ms: int = SETTLE_MS) -> None:
+        """Advance real time. processEvents() alone never finishes animations."""
+        from PySide6.QtTest import QTest
+
+        QTest.qWait(ms)
+
+    @pytest.fixture
+    def window(self, qapp, theme, store, library, settings, organizer, make_item):
+        from app.ui.main_window import MainWindow
+
+        store.update({"first_run_complete": True, "library_root": settings.library_root})
+        for index in range(12):
+            library.add(make_item(title=f"Item {index:02d}", media_kind="audio"))
+        main = MainWindow(store, theme, library)
+        main.resize(1200, 800)
+        main.show()
+        yield main
+        main._manager.shutdown(500)
+        main.deleteLater()
+
+    def test_an_animation_outlives_the_call_that_started_it(self, qapp, theme):
+        from PySide6.QtWidgets import QWidget
+
+        from app.ui.theme import motion
+
+        widget = QWidget()
+        animation = motion.animate(widget, b"windowOpacity", 1.0, start=0.0)
+        assert animation.parent() is widget, (
+            "an unparented animation is collected immediately and never runs"
+        )
+        widget.deleteLater()
+
+    def test_a_fade_actually_reaches_full_opacity(self, qapp, theme):
+        from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget
+
+        from app.ui.theme import motion
+
+        widget = QWidget()
+        widget.resize(200, 100)
+        widget.show()
+        motion.fade_in(widget, duration=120)
+        self._settle(500)
+
+        effect = widget.graphicsEffect()
+        assert not isinstance(effect, QGraphicsOpacityEffect), (
+            "the opacity effect must be removed once the fade completes"
+        )
+        widget.deleteLater()
+
+    def test_grid_cards_end_up_laid_out_not_stacked(self, window):
+        window.navigate("all")
+        window.library_view._on_view_changed("grid")
+        self._settle()
+
+        cards = window.library_view._grid_host._cards
+        assert len(cards) == 12
+        positions = {(c.pos().x(), c.pos().y()) for c in cards}
+        assert len(positions) == len(cards), (
+            f"cards share positions - the layout was overridden: {sorted(positions)}"
+        )
+
+    def test_no_card_is_stranded_at_an_animation_offset(self, window):
+        from PySide6.QtCore import QPoint
+
+        window.navigate("all")
+        self._settle()
+
+        stranded = [
+            c for c in window.library_view._grid_host._cards
+            if c.pos() in (QPoint(0, 10), QPoint(0, 0))
+        ]
+        assert len(stranded) <= 1, "cards frozen at a pop-in offset"
+
+    def test_every_screen_settles_fully_opaque(self, window):
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+
+        for key in ("download", "queue", "all", "tags", "settings"):
+            window.navigate(key)
+            self._settle(600)
+            current = window.stack.currentWidget()
+            effect = current.graphicsEffect()
+            assert not isinstance(effect, QGraphicsOpacityEffect), (
+                f"{key} still carries an opacity effect, which blanks scroll areas"
+            )
+
+    def test_the_scroll_area_is_left_without_an_effect(self, window):
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+
+        window.navigate("all")
+        self._settle()
+        effect = window.library_view._scroll.graphicsEffect()
+        assert not isinstance(effect, QGraphicsOpacityEffect)
+
+    def test_switching_views_repeatedly_leaves_content_visible(self, window):
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+
+        for _ in range(3):
+            window.navigate("download")
+            window.navigate("all")
+        self._settle()
+
+        assert window.library_view._grid_host._cards
+        for widget in (window.library_view, window.library_view._scroll):
+            assert not isinstance(widget.graphicsEffect(), QGraphicsOpacityEffect)
+
+    def test_searching_does_not_re_animate_the_grid(self, window):
+        """Re-fading on every keystroke reads as flicker, not polish."""
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+
+        window.navigate("all")
+        self._settle()
+
+        window.library_view.search.setText("Item 0")
+        window.library_view._run_search()
+
+        assert not isinstance(
+            window.library_view._scroll.graphicsEffect(), QGraphicsOpacityEffect
+        ), "a search must not restart the entrance animation"

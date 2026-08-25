@@ -87,9 +87,20 @@ def animate(
     easing=Easing.enter,
     delay: int = 0,
     on_finished=None,
+    owner=None,
 ) -> QPropertyAnimation:
-    """Animate one Qt property. Returns the animation so callers can keep it."""
-    animation = QPropertyAnimation(target, prop)
+    """Animate one Qt property.
+
+    The animation is parented to its target, which is not optional. Without a
+    parent, nothing holds a reference once this function returns, Python
+    collects the wrapper, and Qt destroys the animation mid-flight - leaving
+    the widget frozen at its *start* value. For a fade-in that means permanently
+    invisible.
+    """
+    # ``owner`` lets the caller keep the animation alive somewhere other than
+    # the target - needed when the target is a graphics effect that gets torn
+    # down the moment the animation ends.
+    animation = QPropertyAnimation(target, prop, owner if owner is not None else target)
     animation.setDuration(0 if _reduce_motion else duration)
     animation.setEasingCurve(easing)
     if start is not None:
@@ -135,18 +146,51 @@ def fade_in(
     delay: int = 0,
     on_finished=None,
 ) -> None:
+    """Fade a widget in, then take the effect back off.
+
+    Removing the effect afterwards is not tidiness, it is required. A widget
+    carrying a QGraphicsOpacityEffect is rendered into an offscreen pixmap for
+    as long as the effect is installed, and on a scroll area that leaves the
+    viewport blank even at full opacity. Fade, then get out of the way.
+    """
     widget.show()
     if _reduce_motion:
         if on_finished:
             on_finished()
         return
+
     effect = _opacity_effect(widget)
     effect.setOpacity(0.0)
+
+    def done() -> None:
+        _clear_opacity_effect(widget)
+        if on_finished:
+            on_finished()
+
     animate(
         effect, b"opacity", 1.0,
         start=0.0, duration=duration, easing=Easing.enter, delay=delay,
-        on_finished=on_finished,
+        on_finished=done, owner=widget,
     )
+
+
+def _clear_opacity_effect(widget: QWidget) -> None:
+    """Detach a fade's opacity effect and restore normal painting."""
+    effect = widget.graphicsEffect()
+    if isinstance(effect, QGraphicsOpacityEffect):
+        effect.setOpacity(1.0)
+        # Deferred: this runs from the animation's finished signal, and the
+        # animation is a child of the widget, not of the effect being dropped.
+        QTimer.singleShot(0, lambda: _detach(widget, effect))
+
+
+def _detach(widget: QWidget, effect) -> None:
+    try:
+        if widget.graphicsEffect() is effect:
+            widget.setGraphicsEffect(None)
+    except RuntimeError:
+        # The widget went away first; nothing to restore.
+        pass
 
 
 def fade_out(widget: QWidget, *, duration: int = Duration.fast, hide: bool = True) -> None:
@@ -160,12 +204,12 @@ def fade_out(widget: QWidget, *, duration: int = Duration.fast, hide: bool = Tru
     def done() -> None:
         if hide:
             widget.hide()
-        effect.setOpacity(1.0)
+        _clear_opacity_effect(widget)
 
     animate(
         effect, b"opacity", 0.0,
         start=effect.opacity(), duration=duration, easing=Easing.exit,
-        on_finished=done,
+        on_finished=done, owner=widget,
     )
 
 
@@ -175,7 +219,7 @@ def fade_to(widget: QWidget, opacity: float, *, duration: int = Duration.fast) -
     if _reduce_motion:
         effect.setOpacity(opacity)
         return
-    animate(effect, b"opacity", opacity, start=effect.opacity(), duration=duration)
+    animate(effect, b"opacity", opacity, start=effect.opacity(), duration=duration, owner=widget)
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +235,12 @@ def slide_in(
     easing=Easing.enter,
     fade: bool = True,
 ) -> None:
-    """Slide a widget into its laid-out position from a nearby offset."""
+    """Slide a widget in from a nearby offset.
+
+    Only for widgets you position yourself - toasts, popovers, overlays. A
+    layout owns the geometry of its children, so animating ``pos`` on one of
+    them fights the layout and loses.
+    """
     widget.show()
     if _reduce_motion:
         return
@@ -250,17 +299,20 @@ def geometry_to(
 
 
 def pop_in(widget: QWidget, *, duration: int = Duration.normal, delay: int = 0) -> None:
-    """A small rise with a fade - for a card arriving in a grid."""
+    """Fade a widget in where it already sits.
+
+    Deliberately opacity-only. An earlier version also animated ``pos`` to make
+    the widget rise into place, which is wrong for anything inside a layout:
+    the layout owns child geometry, ``pos()`` is still stale when a freshly
+    populated grid is measured, and the animation then fights the layout and
+    strands every card in the corner.
+
+    Use :func:`slide_in` for widgets you position yourself.
+    """
     widget.show()
     if _reduce_motion:
         return
     fade_in(widget, duration=duration, delay=delay)
-    end = widget.pos()
-    widget.move(end + QPoint(0, 10))
-    animate(
-        widget, b"pos", end,
-        start=end + QPoint(0, 10), duration=duration, easing=Easing.enter, delay=delay,
-    )
 
 
 def stagger(widgets, action, *, step: int = 26, cap: int = 12) -> None:
