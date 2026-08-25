@@ -59,6 +59,8 @@ class LibraryView(QWidget):
     reveal_path_requested = Signal(str)
     library_changed = Signal()
     download_requested = Signal()
+    #: The highlighted item changed, for the detail rail to follow.
+    selection_changed = Signal(object)   # MediaItem | None
 
     def __init__(
         self,
@@ -119,6 +121,7 @@ class LibraryView(QWidget):
         self.search = SearchInput("Search titles, creators, tags, notes…", title_row)
         self.search.setFixedWidth(320)
         self.search.textChanged.connect(lambda _: self._search_timer.start())
+        self.search.hide()
         title_layout.addWidget(self.search)
 
         layout.addWidget(title_row)
@@ -357,6 +360,13 @@ class LibraryView(QWidget):
         self._query.text = self.search.text()
         self.reload()
 
+    def set_query(self, text: str) -> None:
+        """Apply a query from the global search field."""
+        if self.search.text() == text:
+            return
+        self.search.setText(text)
+        self._search_timer.start()
+
     def focus_search(self) -> None:
         self.search.setFocus()
         self.search.selectAll()
@@ -559,6 +569,7 @@ class LibraryView(QWidget):
 
     def _on_selected(self, item: MediaItem) -> None:
         if self._selected_id == item.id:
+            self.selection_changed.emit(item)
             return
         previous = self._widgets.get(self._selected_id)
         if previous is not None:
@@ -567,6 +578,7 @@ class LibraryView(QWidget):
         if current is not None:
             current.set_selected(True)
         self._selected_id = item.id
+        self.selection_changed.emit(item)
 
     def open_detail(self, item: MediaItem) -> None:
         dialog = MediaDetailDialog(item, self._library, self._settings, self)
@@ -603,6 +615,21 @@ class LibraryView(QWidget):
     def note_item_added(self, item: MediaItem) -> None:
         """A download finished - refresh if it would appear in this view."""
         self.reload()
+
+    def note_item_changed(self, item: MediaItem) -> None:
+        """An edit landed elsewhere - repaint that card without a full reload.
+
+        A reload here would rebuild every widget and lose the selection, which
+        on a text field the user is still typing in reads as the app fighting
+        them.
+        """
+        for index, existing in enumerate(self._items):
+            if existing.id == item.id:
+                self._items[index] = item
+                break
+        widget = self._widgets.get(item.id)
+        if widget is not None:
+            widget.refresh(item)
 
     def reveal(self, media_id: int) -> None:
         self._pending_reveal = media_id

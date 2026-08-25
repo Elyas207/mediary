@@ -10,7 +10,9 @@ Runs on Windows, macOS and Linux.
 
 ## What it does
 
-Paste one URL or twenty. Mediary reads what's there first and shows you the title, creator, length and every format the source actually offers, so you're picking from real options rather than guessing. Choose a format and a category, hit download, and it handles the rest in the background.
+Paste one URL or twenty. Mediary reads what's there first and shows you the title, creator, length and every format the source actually offers, side by side: what it has as video, and what it can be turned into as audio. Every row carries its size, because 1080p and 720p aren't a real choice until you know one is 1.2 GB and the other is 240 MB. Sizes the source reported are shown plainly; sizes worked out for a conversion that hasn't happened yet get a `~`.
+
+Picking a row in one list clears the other, and that's what decides whether you get a video or an audio file — there's no separate switch to contradict it. Tag it there and then if you want; tags applied at download time land with the file, which is the only moment you reliably remember why you wanted it.
 
 Downloads go into a folder structure by category:
 
@@ -31,7 +33,7 @@ After a while Mediary stops asking you where things go. It watches what you actu
 
 It never counts its own guesses as evidence. An item you let through unchallenged carries less weight than one you deliberately filed, so it can't slowly talk itself into a bad habit. Settings → Organisation has the toggle and the full list of rules.
 
-Everything that lands there gets indexed in SQLite with full-text search across title, filename, creator, tags, category, notes and licence notes. The library has grid and list views, filter chips, favourites, and a detail panel where you can edit metadata and add tags.
+Everything that lands there gets indexed in SQLite with full-text search across title, filename, creator, tags, category, notes and licence notes. The library has grid and list views, filter chips and favourites, with a detail rail down the right-hand side showing everything known about whatever is selected — metadata, licensing, tags and notes, all editable in place. It's docked rather than modal because picking between near-identical sound effects means selecting the next one constantly, and a dialog per file would make that unbearable. On a narrow window it folds away on its own.
 
 Audio auditions in place. Click a tile's artwork or hit space on a selected row and it plays in a dock at the bottom of the window, with a waveform you can scrub. Finding the right whoosh means listening to fifteen of them, and a modal per file would make that unbearable.
 

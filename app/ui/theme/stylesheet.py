@@ -71,6 +71,8 @@ def build_stylesheet(p: Palette) -> str:
         r_md=Radius.md,
         r_lg=Radius.lg,
         r_xl=Radius.xl,
+        r_xxl=Radius.xxl,
+        r_pill=Radius.pill,
         h_control=Size.control_height,
         h_control_sm=Size.control_height_sm,
         h_input=Size.input_height,
@@ -112,11 +114,11 @@ QToolTip {{
 }}
 
 #ContentArea {{
-    background: {surface};
+    background: {app};
 }}
 
 #TopBar {{
-    background: {surface};
+    background: {app};
     border-bottom: 1px solid {border};
 }}
 
@@ -130,7 +132,164 @@ QToolTip {{
 #Panel {{
     background: {elevated};
     border: 1px solid {border};
-    border-radius: {r_lg}px;
+    border-radius: {r_xl}px;
+}}
+
+/* A pane that carries its own scroll region: sidebar, detail rail. */
+/* A format row is a whole-row target, so it needs a visible resting and
+   selected state of its own rather than relying on the radio alone. */
+#StickyFooterHolder {{
+    background: {app};
+    border-top: 1px solid {border};
+}}
+
+#OverallProgress {{
+    background: {border};
+    border: none;
+    border-radius: 3px;
+}}
+
+#OverallProgress::chunk {{
+    background: {accent};
+    border-radius: 3px;
+}}
+
+#FormatRow {{
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: {r_sm}px;
+}}
+
+#FormatRow:hover {{
+    background: {hover};
+}}
+
+#FormatRow[active="true"] {{
+    background: {selected};
+    border-color: {accent};
+}}
+
+#SidebarTagline {{
+    color: {text_muted};
+    font-size: {t_micro}px;
+    background: transparent;
+    border: none;
+}}
+
+/* Live activity reads as a filled pill; a library total stays plain text, so
+   "3 downloading" never looks like "3 files". */
+#NavCount[badge="true"] {{
+    background: {accent};
+    color: {accent_text};
+    border-radius: {r_pill}px;
+    padding: 1px 6px;
+    font-size: {t_micro}px;
+    font-weight: {w_semibold};
+    min-width: 8px;
+}}
+
+#StorageMeter {{
+    background: {inset};
+    border: 1px solid {border};
+    border-radius: {r_md}px;
+}}
+
+#StorageTitle {{
+    color: {text_secondary};
+    font-size: {t_micro}px;
+    font-weight: {w_semibold};
+    background: transparent;
+    border: none;
+}}
+
+#StorageDetail {{
+    color: {text_muted};
+    font-size: {t_micro}px;
+    background: transparent;
+    border: none;
+}}
+
+#StorageBar {{
+    background: {border};
+    border: none;
+    border-radius: 2px;
+}}
+
+#StorageBar::chunk {{
+    background: {accent};
+    border-radius: 2px;
+}}
+
+#StorageBar[tone="danger"]::chunk {{
+    background: {danger};
+}}
+
+#DetailHeader {{
+    background: {sidebar};
+    border-bottom: 1px solid {border};
+}}
+
+/* The one search field in the app. Pill-shaped so it reads as a place to
+   type rather than another rectangular control among many. */
+#SearchField {{
+    background: {surface};
+    border: 1px solid {border};
+    border-radius: {r_pill}px;
+    padding: 0 {s_md}px 0 {s_sm}px;
+    min-height: {h_input}px;
+    color: {text};
+}}
+
+#SearchField:focus {{
+    border-color: {accent};
+    background: {elevated};
+}}
+
+#ThemeSwitch {{
+    background: {inset};
+    border: 1px solid {border};
+    border-radius: {r_pill}px;
+}}
+
+#ThemeSwitch #SegmentButton {{
+    border-radius: {r_pill}px;
+    min-width: 30px;
+}}
+
+#DetailTabs::pane {{
+    border: none;
+    background: transparent;
+    top: -1px;
+}}
+
+#DetailTabs QTabBar {{
+    background: transparent;
+    qproperty-drawBase: 0;
+}}
+
+#DetailTabs QTabBar::tab {{
+    background: transparent;
+    color: {text_muted};
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: {s_sm}px {s_md}px;
+    margin-right: {s_xs}px;
+    font-size: {t_small}px;
+    font-weight: {w_medium};
+}}
+
+#DetailTabs QTabBar::tab:hover {{
+    color: {text_secondary};
+}}
+
+#DetailTabs QTabBar::tab:selected {{
+    color: {text};
+    border-bottom-color: {accent};
+}}
+
+#DetailPane {{
+    background: {sidebar};
+    border-left: 1px solid {border};
 }}
 
 #InsetPanel {{
@@ -477,10 +636,12 @@ QCheckBox::indicator:checked {{
     border-color: {accent};
     image: url(mediary:check);
 }}
+/* A solid disc. Qt does not round the inner edge of a thick border, so the
+   ring-with-a-dot approach renders as a square at this size. */
 QRadioButton::indicator:checked {{
     background: {accent};
-    border: 4px solid {inset};
-    outline: 1px solid {accent};
+    border: 1px solid {accent};
+    border-radius: 8px;
 }}
 QCheckBox:disabled, QRadioButton:disabled {{ color: {text_muted}; }}
 

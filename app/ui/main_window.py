@@ -29,11 +29,13 @@ from app.services.download_service import DownloadService
 from app.services.filing_service import FilingService
 from app.services.library_service import LibraryService
 from app.services.organization_service import OrganizationService
+from app.ui.detail_pane import DetailPane
 from app.ui.dialogs.duplicate_dialog import DuplicateDialog
 from app.ui.dialogs.error_dialog import ErrorDialog
 from app.ui.sidebar import NAV_FILTERS, Sidebar
 from app.ui.theme import Theme
 from app.ui.theme.motion import Duration, fade_in, set_reduce_motion
+from app.ui.topbar import TopBar
 from app.ui.tray import MediaryTray, tray_available
 from app.ui.views.download_view import DownloadView
 from app.ui.views.library_view import LibraryView
@@ -66,7 +68,10 @@ class MainWindow(QMainWindow):
         self._library = library
 
         self.setWindowTitle("Mediary")
-        self.setMinimumSize(QSize(1020, 660))
+        # Three panes need real room. Below this the detail rail folds away
+        # on its own rather than squeezing the work area to nothing.
+        self.setMinimumSize(QSize(960, 640))
+        self.resize(QSize(1360, 860))
 
         self._organizer = OrganizationService(self._settings)
         self._filing = FilingService(self._library, self._settings)
@@ -86,6 +91,10 @@ class MainWindow(QMainWindow):
         self._tray_hint_shown = False
         self._setup_tray()
 
+        self.detail_pane.setVisible(self._settings.show_detail_pane)
+        self._sync_detail_pane()
+        self.topbar.set_theme_value(self._theme.palette.name)
+
         self._refresh_counts()
         self._check_environment()
 
@@ -96,6 +105,12 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _build_ui(self) -> None:
+        """Three panes: navigation, the work, and what is selected.
+
+        The detail rail is docked rather than modal because choosing between
+        near-identical sound effects means selecting the next one constantly,
+        and a dialog per file would make that unbearable.
+        """
         central = QWidget(self)
         central.setObjectName("ContentArea")
         layout = hbox(central, spacing=0)
@@ -107,9 +122,15 @@ class MainWindow(QMainWindow):
         right.setObjectName("ContentArea")
         right_layout = vbox(right, spacing=0)
 
+        self.topbar = TopBar(right)
+        right_layout.addWidget(self.topbar)
+
         self.stack = QStackedWidget(right)
         right_layout.addWidget(self.stack, 1)
         layout.addWidget(right, 1)
+
+        self.detail_pane = DetailPane(central)
+        layout.addWidget(self.detail_pane)
 
         self.download_view = DownloadView(
             self._settings, self._manager, self._filing, self.stack
@@ -150,6 +171,21 @@ class MainWindow(QMainWindow):
         self.library_view.reveal_path_requested.connect(self.reveal_path)
         self.library_view.library_changed.connect(self._refresh_counts)
         self.library_view.download_requested.connect(lambda: self.navigate("download"))
+        self.library_view.selection_changed.connect(self.detail_pane.show_item)
+
+        self.topbar.search_submitted.connect(self._on_search)
+        self.topbar.search_cleared.connect(lambda: self._on_search(""))
+        self.topbar.theme_selected.connect(self._on_theme_selected)
+
+        self.detail_pane.item_changed.connect(self._on_detail_edited)
+        self.detail_pane.favorite_toggled.connect(self._on_detail_edited)
+        self.detail_pane.open_requested.connect(
+            lambda item: self.open_path(str(item.file_path))
+        )
+        self.detail_pane.reveal_requested.connect(
+            lambda item: self.reveal_path(str(item.file_path))
+        )
+        self.detail_pane.close_requested.connect(self._hide_detail_pane)
 
         self.tags_view.tags_changed.connect(self._on_tags_changed)
         self.tags_view.tag_selected.connect(self._on_tag_selected)
@@ -429,6 +465,51 @@ class MainWindow(QMainWindow):
         self._store.save()
         log.info("Added custom category %r", name)
 
+    def _on_search(self, text: str) -> None:
+        """Global search always means the library, whatever screen is open."""
+        query = text.strip()
+        if query and self.stack.currentWidget() is not self.library_view:
+            self.navigate("all")
+        self.library_view.set_query(query)
+
+    def _on_theme_selected(self, name: str) -> None:
+        self._store.set("theme", name)
+        self._theme.apply(name)
+        self.sidebar.refresh_theme()
+        self.topbar.refresh_theme()
+        self.library_view.refresh_theme()
+        self.detail_pane.refresh_theme()
+        self.settings_view.reload()
+
+    def _on_detail_edited(self, item) -> None:
+        """Write a detail-pane edit straight back to the library."""
+        try:
+            self._library.update(item)
+            self._library.set_tags(item.id, item.tags)
+        except Exception:  # noqa: BLE001 - an edit must not take the window down
+            log.exception("Could not save changes to media %s", item.id)
+            return
+        self.library_view.note_item_changed(item)
+
+    #: Below this the detail rail costs the work area more than it is worth.
+    DETAIL_PANE_MIN_WIDTH = 1180
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt naming
+        super().resizeEvent(event)
+        self._sync_detail_pane()
+
+    def _sync_detail_pane(self) -> None:
+        """Fold the detail rail away when the window gets too narrow for it."""
+        if not self._settings.show_detail_pane:
+            return
+        wanted = self.width() >= self.DETAIL_PANE_MIN_WIDTH
+        if self.detail_pane.isVisible() != wanted:
+            self.detail_pane.setVisible(wanted)
+
+    def _hide_detail_pane(self) -> None:
+        self.detail_pane.hide()
+        self._store.set("show_detail_pane", False)
+
     def _refresh_counts(self) -> None:
         try:
             counts = self._library.kind_counts()
@@ -438,6 +519,25 @@ class MainWindow(QMainWindow):
             log.exception("Could not refresh sidebar counts")
             return
         self.sidebar.set_counts(counts)
+        self._refresh_storage()
+
+    def _refresh_storage(self) -> None:
+        """How much room is left where the library actually lives."""
+        import shutil
+
+        # The library folder may not exist yet on a fresh install, so walk up
+        # to the nearest parent that does before asking about the volume.
+        probe = self._settings.root_path
+        for candidate in (probe, *probe.parents):
+            try:
+                usage = shutil.disk_usage(candidate)
+            except OSError:
+                continue
+            self.sidebar.set_storage(usage.free, usage.total)
+            return
+        # A library on a disconnected drive is a real state, and not one worth
+        # a dialog - the meter simply stays hidden.
+        self.sidebar.set_storage(0, 0)
 
     def _reveal_media(self, media_id: int) -> None:
         self.navigate("all")

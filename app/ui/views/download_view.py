@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 
 from app.config.settings import Settings
 from app.downloader.ytdlp_adapter import parse_urls
-from app.models.category import categories_for_kind
+from app.models.category import KIND_AUDIO, KIND_VIDEO, categories_for_kind
 from app.models.download import (
     AUDIO_FORMATS,
     LOSSY_AUDIO_FORMATS,
@@ -41,6 +41,7 @@ from app.ui.widgets.common import (
     EmptyState,
     Notice,
     SegmentedControl,
+    TagChip,
     button,
     divider,
     hbox,
@@ -49,6 +50,8 @@ from app.ui.widgets.common import (
     panel,
     vbox,
 )
+from app.ui.widgets.format_list import FormatList, audio_choices, video_choices
+from app.ui.widgets.queue_panel import QueuePanel
 from app.ui.widgets.thumbnail import Thumbnail
 from app.utils.filenames import sanitize_component
 from app.utils.formatting import format_bytes, format_date, format_duration, truncate
@@ -83,11 +86,19 @@ class OptionBar(QWidget):
         settings: Settings,
         *,
         compact: bool = False,
+        category_only: bool = False,
         parent: QWidget | None = None,
     ) -> None:
+        """``category_only`` hides the format controls.
+
+        On an analysed card the format lists own the choice, and the kind is
+        whichever list the selection is in - a second set of pickers saying the
+        same thing is two sources of truth the user has to reconcile.
+        """
         super().__init__(parent)
         self._settings = settings
         self._compact = compact
+        self._category_only = category_only
         self._available_qualities: list = list(("best", "2160p", "1440p", "1080p", "720p", "480p", "360p"))
         self._updating = False
         #: The last real category, so cancelling “New category…” can go back.
@@ -116,6 +127,10 @@ class OptionBar(QWidget):
         layout.addStretch(1)
 
         self._apply_settings()
+
+        if category_only:
+            for widget in (self.kind, self.format_box, self.quality_box):
+                widget.hide()
 
     def _combo(self, width: int) -> QComboBox:
         box = QComboBox(self)
@@ -374,19 +389,26 @@ class AnalysisCard(QFrame):
         self._category_touched = False
         self._applying = False
         self._kind = settings.default_media_kind
+        #: Set once the user picks a format row. From then on the defaults
+        #: bar leaves this card's format alone.
+        self._format_touched = False
+        self._tags: list = []
 
-        layout = hbox(self, spacing=Space.md, margins=(Space.md, Space.md, Space.md, Space.md))
+        root = vbox(self, spacing=Space.md, margins=(Space.md,) * 4)
 
-        self.thumb = Thumbnail(aspect=16 / 9, fallback_icon="link", parent=self)
-        self.thumb.setFixedSize(QSize(132, 76))
-        layout.addWidget(self.thumb, 0, Qt.AlignmentFlag.AlignTop)
+        # -- Header: artwork, title, state ---------------------------------
+        header = QWidget(self)
+        header_layout = hbox(header, spacing=Space.md)
+
+        self.thumb = Thumbnail(aspect=16 / 9, fallback_icon="link", parent=header)
+        self.thumb.setFixedSize(QSize(184, 104))
+        header_layout.addWidget(self.thumb, 0, Qt.AlignmentFlag.AlignTop)
 
         column = vbox(spacing=Space.xs)
 
-        # -- Title row -----------------------------------------------------
-        title_row = QWidget(self)
+        title_row = QWidget(header)
         title_layout = hbox(title_row, spacing=Space.sm)
-        self.title = ElidedLabel(truncate(url, 80), "itemTitle", parent=title_row)
+        self.title = ElidedLabel(truncate(url, 80), "heading", parent=title_row)
         title_layout.addWidget(self.title, 1)
         self.state_badge = Badge("Analysing", "accent", title_row)
         title_layout.addWidget(self.state_badge)
@@ -395,11 +417,43 @@ class AnalysisCard(QFrame):
         title_layout.addWidget(close)
         column.addWidget(title_row)
 
-        self.meta = ElidedLabel("Reading metadata…", "muted", parent=self)
+        self.creator = ElidedLabel("", "muted", parent=header)
+        self.creator.hide()
+        column.addWidget(self.creator)
+
+        self.meta = ElidedLabel("Reading metadata…", "meta", parent=header)
         column.addWidget(self.meta)
+        column.addStretch(1)
+
+        header_layout.addLayout(column, 1)
+        root.addWidget(header)
+
+        # -- The choice: what the source has, and what it can become -------
+        self.formats_row = QWidget(self)
+        formats_layout = hbox(self.formats_row, spacing=Space.md)
+
+        self.video_formats = FormatList("Video download options", parent=self.formats_row)
+        self.video_formats.changed.connect(lambda v: self._on_format_picked(KIND_VIDEO, v))
+        self.video_formats.auto_toggled.connect(
+            lambda on: self._on_auto_toggled(KIND_VIDEO, on)
+        )
+        formats_layout.addWidget(self.video_formats, 1)
+
+        self.audio_formats = FormatList("Audio only options", parent=self.formats_row)
+        self.audio_formats.changed.connect(lambda v: self._on_format_picked(KIND_AUDIO, v))
+        self.audio_formats.auto_toggled.connect(
+            lambda on: self._on_auto_toggled(KIND_AUDIO, on)
+        )
+        formats_layout.addWidget(self.audio_formats, 1)
+
+        self.formats_row.hide()
+        root.addWidget(self.formats_row)
+
+        column = vbox(spacing=Space.xs)
+        root.addLayout(column)
 
         # -- Options (hidden until analysis succeeds) ----------------------
-        self.options_bar = OptionBar(settings, compact=True, parent=self)
+        self.options_bar = OptionBar(settings, compact=True, category_only=True, parent=self)
         self.options_bar.changed.connect(self._on_options_changed)
         self.options_bar.category_edited.connect(self._on_category_changed)
         self.options_bar.hide()
@@ -437,7 +491,35 @@ class AnalysisCard(QFrame):
         self.error_row.hide()
         column.addWidget(self.error_row)
 
-        layout.addLayout(column, 1)
+        # -- Where it lands, and the button that starts it ------------------
+        self.filing_row = QWidget(self)
+        filing_layout = hbox(self.filing_row, spacing=Space.md)
+
+        filing_layout.addWidget(label("Save to", "sectionLabel", parent=self.filing_row))
+        filing_layout.addWidget(self.options_bar)
+
+        filing_layout.addWidget(divider(vertical=True, parent=self.filing_row))
+        filing_layout.addWidget(label("Tags", "sectionLabel", parent=self.filing_row))
+
+        self._tag_holder = QWidget(self.filing_row)
+        self._tag_flow = hbox(self._tag_holder, spacing=Space.xs)
+        filing_layout.addWidget(self._tag_holder)
+
+        self.tag_input = QLineEdit(self.filing_row)
+        self.tag_input.setPlaceholderText("Add a tag…")
+        self.tag_input.setFixedWidth(120)
+        self.tag_input.returnPressed.connect(self._add_tag)
+        filing_layout.addWidget(self.tag_input)
+
+        filing_layout.addStretch(1)
+
+        self.advanced_btn = button("Advanced", variant="link", size="sm")
+        self.advanced_btn.setToolTip("Per-item options live on the Settings screen")
+        self.advanced_btn.hide()
+        filing_layout.addWidget(self.advanced_btn)
+
+        self.filing_row.hide()
+        root.addWidget(self.filing_row)
 
     # -- State transitions -------------------------------------------------
 
@@ -470,6 +552,10 @@ class AnalysisCard(QFrame):
         self.options_bar.set_available_qualities(info.available_video_qualities)
         if not info.has_video:
             self.options_bar.set_kind_locked("audio")
+
+        self._populate_formats(info)
+        self.formats_row.show()
+        self.filing_row.show()
         self.options_bar.show()
         self.destination.show()
         self.error_row.hide()
@@ -487,6 +573,8 @@ class AnalysisCard(QFrame):
         self.meta.setText(truncate(self.url, 90))
         self.error_label.setText(message)
         self.error_row.show()
+        self.formats_row.hide()
+        self.filing_row.hide()
         self.options_bar.hide()
         self.destination.hide()
         self.changed.emit()
@@ -498,7 +586,34 @@ class AnalysisCard(QFrame):
     def options(self) -> DownloadOptions:
         chosen = self.options_bar.options()
         chosen.category_source = self._category_source()
+        chosen.media_kind = self._kind
+        chosen.tags = list(self._tags)
+
+        selected = self._active_panel().value()
+        if self._kind == KIND_AUDIO:
+            fmt, _, rate = selected.partition("@")
+            if fmt == "source":
+                # "Best quality" keeps the source's own container rather than
+                # re-encoding it into something the user did not ask for.
+                chosen.audio_format = self._source_audio_format()
+                chosen.audio_bitrate = self._settings.default_audio_bitrate
+            elif fmt:
+                chosen.audio_format = fmt
+                if rate and rate != "lossless":
+                    chosen.audio_bitrate = rate
+        elif selected:
+            chosen.video_quality = selected
+            chosen.video_format = self._settings.default_video_format
         return chosen
+
+    def _source_audio_format(self) -> str:
+        """The extension of the best audio stream the source offers."""
+        if self.info is None:
+            return self._settings.default_audio_format
+        streams = [f for f in self.info.formats if f.has_audio and not f.has_video]
+        best = max(streams, key=lambda f: (f.abr or f.tbr or 0), default=None)
+        ext = (best.ext if best else "").lower()
+        return ext if ext in AUDIO_FORMATS else self._settings.default_audio_format
 
     def _category_source(self) -> str:
         """Provenance for the category this card will download with."""
@@ -530,9 +645,125 @@ class AnalysisCard(QFrame):
             self.options_bar.apply_options(options)
             if keep_category and current:
                 self.options_bar.set_category(current)
+            if not self._format_touched:
+                self._apply_default_format(options)
         finally:
             self._applying = False
         self._refresh_destination()
+
+    def _apply_default_format(self, options: DownloadOptions) -> None:
+        """Start a fresh card on the format the user asked for by default.
+
+        Only until they pick a row themselves - after that the defaults bar
+        must not reach back in and overwrite the choice.
+        """
+        kind = options.media_kind
+        if self.info is not None and not self.info.has_video:
+            kind = KIND_AUDIO          # the source settles it
+        self._select_panel(kind)
+
+        panel = self._active_panel()
+        if kind == KIND_AUDIO:
+            wanted = f"{options.audio_format}@{options.audio_bitrate}"
+            if options.audio_format not in LOSSY_AUDIO_FORMATS:
+                wanted = f"{options.audio_format}@lossless"
+        else:
+            wanted = options.video_quality
+        if wanted in panel._rows:
+            panel.set_value(wanted)
+
+    # -- Tags -------------------------------------------------------------
+
+    def _add_tag(self) -> None:
+        name = self.tag_input.text().strip()
+        self.tag_input.clear()
+        if not name or any(t.casefold() == name.casefold() for t in self._tags):
+            return
+        self._tags.append(name)
+        self._render_tags()
+        self.changed.emit()
+
+    def _remove_tag(self, name: str) -> None:
+        self._tags = [t for t in self._tags if t != name]
+        self._render_tags()
+        self.changed.emit()
+
+    def _render_tags(self) -> None:
+        while self._tag_flow.count():
+            widget = self._tag_flow.takeAt(0).widget()
+            if widget is not None:
+                widget.deleteLater()
+        for name in self._tags:
+            chip = TagChip(name, removable=True, parent=self._tag_holder)
+            chip.removed.connect(self._remove_tag)
+            self._tag_flow.addWidget(chip)
+
+    # -- Formats ----------------------------------------------------------
+
+    def _populate_formats(self, info: MediaInfo) -> None:
+        """Fill both panels, then put the selection where the source points."""
+        self._applying = True
+        try:
+            self.video_formats.set_choices(
+                video_choices(info, self._settings.default_video_format)
+            )
+            self.audio_formats.set_choices(audio_choices(info))
+
+            wants_audio = not info.has_video or self._settings.default_media_kind == KIND_AUDIO
+            if wants_audio or not self.video_formats.value():
+                self._select_panel(KIND_AUDIO)
+            else:
+                self._select_panel(KIND_VIDEO)
+
+            self.video_formats.setVisible(info.has_video)
+        finally:
+            self._applying = False
+
+    def _select_panel(self, kind: str) -> None:
+        """Exactly one panel owns the selection, and it decides the kind.
+
+        Two panels each holding a live radio would leave the user unable to
+        tell which one the download will actually use.
+        """
+        wanted = self.audio_formats if kind == KIND_AUDIO else self.video_formats
+        other = self.video_formats if kind == KIND_AUDIO else self.audio_formats
+
+        other._group.setExclusive(False)
+        for row in other._rows.values():
+            row.radio.setChecked(False)
+        other._group.setExclusive(True)
+
+        if not wanted.value() and wanted._rows:
+            wanted.set_value(next(iter(wanted._rows)))
+
+        self._kind = kind
+        self.options_bar.kind.set_value(kind)
+        self._refresh_destination()
+
+    def _on_format_picked(self, kind: str, _value: str) -> None:
+        if self._applying:
+            return
+        self._format_touched = True
+        if kind != self._kind:
+            self._applying = True
+            try:
+                self._select_panel(kind)
+            finally:
+                self._applying = False
+            if not self._category_touched:
+                self._suggestion = None
+                self.suggestion_row.hide()
+                self.resuggest_requested.emit(self.request_id)
+        self._refresh_destination()
+        self.changed.emit()
+
+    def _on_auto_toggled(self, kind: str, on: bool) -> None:
+        if self._applying or not on:
+            return
+        self._on_format_picked(kind, "")
+
+    def _active_panel(self):
+        return self.audio_formats if self._kind == KIND_AUDIO else self.video_formats
 
     # -- Suggestion -------------------------------------------------------
 
@@ -674,7 +905,7 @@ class DownloadView(QWidget):
         self._cards: dict = {}
         self._pending = 0
 
-        root = vbox(self, spacing=0)
+        root = self._root_layout = vbox(self, spacing=0)
 
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
@@ -689,7 +920,7 @@ class DownloadView(QWidget):
         content = QWidget(wrapper)
         content.setMaximumWidth(940)
         self._content_layout = vbox(
-            content, spacing=0, margins=(Space.x3l, Space.xxl, Space.x3l, Space.x3l)
+            content, spacing=0, margins=(Space.xxl, Space.xl, Space.xxl, Space.xxl)
         )
 
         wrapper_layout.addStretch(1)
@@ -810,9 +1041,33 @@ class DownloadView(QWidget):
         )
         footer_layout.addWidget(self.download_btn)
         self._footer.hide()
+
+        # What is already running, right under the box you are about to paste
+        # the next link into.
+        self.queue_panel = QueuePanel(self._manager, self)
+        self.queue_panel.show_queue_requested.connect(self.show_queue_requested.emit)
+        self.queue_panel.pause_requested.connect(self._manager.pause)
+        self.queue_panel.resume_requested.connect(self._manager.resume)
+        self.queue_panel.cancel_requested.connect(self._manager.cancel)
+        self.queue_panel.retry_requested.connect(self._manager.retry)
         self._content_layout.addSpacing(Space.lg)
-        self._content_layout.addWidget(self._footer)
+        self._content_layout.addWidget(self.queue_panel)
+
         self._content_layout.addStretch(1)
+
+        self._footer.setObjectName("StickyFooter")
+        self._footer.setParent(self)
+        footer_holder = QWidget(self)
+        footer_holder.setObjectName("StickyFooterHolder")
+        holder_layout = hbox(
+            footer_holder, spacing=0, margins=(Space.xxl, Space.sm, Space.xxl, Space.sm)
+        )
+        holder_layout.addStretch(1)
+        holder_layout.addWidget(self._footer, 10)
+        holder_layout.addStretch(1)
+        self._footer_holder = footer_holder
+        footer_holder.hide()
+        self._root_layout.addWidget(footer_holder)
 
     # -- Input ------------------------------------------------------------
 
@@ -997,6 +1252,7 @@ class DownloadView(QWidget):
         total = len(self._cards)
 
         self._footer.setVisible(total > 0)
+        self._footer_holder.setVisible(total > 0)
         self.download_btn.setEnabled(bool(ready))
         self.download_btn.setText(
             f"Download {len(ready)}" if len(ready) > 1 else "Download"

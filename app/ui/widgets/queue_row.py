@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
-from PySide6.QtWidgets import QFrame, QWidget
+from PySide6.QtWidgets import QFrame, QSizePolicy, QWidget
 
 from app.models.download import DownloadStatus, DownloadTask
 from app.ui.theme import Size, Space, get_theme
@@ -29,10 +29,14 @@ from app.utils.formatting import format_bytes, format_eta, format_speed
 class QueueRow(QFrame):
     """A single download with live progress, speed, ETA and inline actions."""
 
-    #: Fixed columns keep the queue readable as a table while it scrolls.
+    #: Columns keep the queue readable as a table while it scrolls. They are
+    #: maximums rather than fixed widths: inline on the Download screen the row
+    #: is far narrower, and fixed columns there squeeze the title to nothing.
     BADGE_COLUMN_WIDTH = 210
     METRICS_COLUMN_WIDTH = 150
     ACTIONS_COLUMN_WIDTH = 132
+    #: Below this the title stops being a title.
+    TITLE_MIN_WIDTH = 150
 
     pause_requested = Signal(str)
     resume_requested = Signal(str)
@@ -68,12 +72,14 @@ class QueueRow(QFrame):
         self.status_label = ElidedLabel("", "muted", parent=text_column)
         text_layout.addWidget(self.status_label)
 
+        text_column.setMinimumWidth(self.TITLE_MIN_WIDTH)
         layout.addWidget(text_column, 1)
 
         # Format and category sit in their own fixed column so the badges line
         # up down the queue instead of drifting with each title's length.
         badges = QWidget(self)
-        badges.setFixedWidth(self.BADGE_COLUMN_WIDTH)
+        badges.setMaximumWidth(self.BADGE_COLUMN_WIDTH)
+        badges.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         badge_layout = hbox(badges, spacing=Space.xs)
         badge_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.format_badge = Badge(task.options.quality_label(), parent=badges)
@@ -85,13 +91,14 @@ class QueueRow(QFrame):
 
         # -- Numeric column (fixed width so rows stay aligned) -------------
         self.metrics = label("", "meta")
-        self.metrics.setFixedWidth(self.METRICS_COLUMN_WIDTH)
+        self.metrics.setMaximumWidth(self.METRICS_COLUMN_WIDTH)
+        self.metrics.setMinimumWidth(96)
         self.metrics.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.metrics)
 
         # -- Actions --------------------------------------------------------
         self.actions = QWidget(self)
-        self.actions.setFixedWidth(self.ACTIONS_COLUMN_WIDTH)
+        self.actions.setMaximumWidth(self.ACTIONS_COLUMN_WIDTH)
         self._actions_layout = hbox(self.actions, spacing=2)
         self._actions_layout.addStretch(1)
         layout.addWidget(self.actions)

@@ -84,6 +84,10 @@ class DownloadOptions:
     #: How the category was arrived at - see models/filing.SOURCE_*. Carried
     #: through so the library records it and smart filing can weight it later.
     category_source: str = ""
+    #: Tags to apply the moment this lands in the library. Tagging at the
+    #: point of download is the only time the user reliably remembers why they
+    #: wanted the file.
+    tags: list = field(default_factory=list)
     format_id: str = ""                  # explicit yt-dlp format, when picked
     embed_thumbnail: bool = True
     embed_metadata: bool = True

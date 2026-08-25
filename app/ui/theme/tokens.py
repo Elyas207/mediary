@@ -102,27 +102,29 @@ _CATEGORY_LIGHT = {
 
 DARK = Palette(
     name="dark",
-    app="#0E0F11",
-    sidebar="#131418",
-    surface="#17181C",
-    elevated="#1D1E23",
-    inset="#101114",
-    overlay="rgba(8, 9, 11, 190)",
-    hover="#212228",
-    active="#26272E",
-    selected="#272932",
+    # The warm cast carries over: neutrals here are browned rather than blued,
+    # so switching themes changes the light in the room, not the room.
+    app="#131110",
+    sidebar="#191614",
+    surface="#1C1917",
+    elevated="#231F1C",
+    inset="#151312",
+    overlay="rgba(10, 8, 7, 190)",
+    hover="#272320",
+    active="#2E2925",
+    selected="#2A2E3D",
     selected_text="#FFFFFF",
-    border="#24252B",
-    border_strong="#33353D",
-    divider="#1F2026",
-    text="#ECEDF0",
-    text_secondary="#9CA0AA",
-    text_muted="#6A6E78",
-    text_inverted="#101114",
-    accent="#5B7CFA",
-    accent_hover="#6E8CFB",
-    accent_pressed="#4A6AE6",
-    accent_soft="rgba(91, 124, 250, 38)",
+    border="#2A2522",
+    border_strong="#3B3531",
+    divider="#242019",
+    text="#F2EDE8",
+    text_secondary="#A79C93",
+    text_muted="#75695F",
+    text_inverted="#17130F",
+    accent="#5C86F5",
+    accent_hover="#7098F8",
+    accent_pressed="#4A72E0",
+    accent_soft="rgba(92, 134, 245, 40)",
     accent_text="#FFFFFF",
     success="#4FB865",
     success_soft="rgba(79, 184, 101, 34)",
@@ -131,51 +133,55 @@ DARK = Palette(
     danger="#E5594F",
     danger_hover="#EE6A60",
     danger_soft="rgba(229, 89, 79, 34)",
-    info="#5B9BD5",
-    thumb_bg="#0B0C0E",
-    scrollbar="#2E3038",
-    scrollbar_hover="#3C3F49",
-    shadow="rgba(0, 0, 0, 140)",
+    info="#5C86F5",
+    thumb_bg="#0F0D0C",
+    scrollbar="#332D29",
+    scrollbar_hover="#443C36",
+    shadow="rgba(0, 0, 0, 150)",
     categories=_CATEGORY_DARK,
 )
 
 
 LIGHT = Palette(
     name="light",
-    app="#F1F2F4",
-    sidebar="#F7F7F9",
+    # Warm neutrals rather than blue-grey. A media library is looked at for
+    # hours at a time, and a cream ground is easier to sit in front of than a
+    # cold white one - it also lets plain white panels read as raised without
+    # needing a heavy shadow.
+    app="#FBF2EA",
+    sidebar="#FDF7F2",
     surface="#FFFFFF",
     elevated="#FFFFFF",
-    inset="#F6F7F9",
-    overlay="rgba(24, 26, 30, 120)",
-    hover="#F0F1F4",
-    active="#E7E9ED",
-    selected="#EBEFFE",
-    selected_text="#1A2E7A",
-    border="#E4E5EA",
-    border_strong="#CBCDD5",
-    divider="#EDEEF1",
-    text="#15161A",
-    text_secondary="#5A5E68",
-    text_muted="#8A8E98",
+    inset="#FAF4EE",
+    overlay="rgba(46, 34, 26, 110)",
+    hover="#F6EDE5",
+    active="#EFE3D8",
+    selected="#E8EEFD",
+    selected_text="#1E3A8A",
+    border="#EFE3D7",
+    border_strong="#DCCBBB",
+    divider="#F3EAE1",
+    text="#1F1A16",
+    text_secondary="#6B6058",
+    text_muted="#9C8F84",
     text_inverted="#FFFFFF",
-    accent="#3D5FE8",
-    accent_hover="#3355DC",
-    accent_pressed="#2A49C9",
-    accent_soft="rgba(61, 95, 232, 28)",
+    accent="#3B6FE0",
+    accent_hover="#4C7DEA",
+    accent_pressed="#2F5DC4",
+    accent_soft="rgba(59, 111, 224, 30)",
     accent_text="#FFFFFF",
-    success="#2E8B45",
-    success_soft="rgba(46, 139, 69, 28)",
-    warning="#9A6B0C",
-    warning_soft="rgba(200, 150, 30, 40)",
-    danger="#CF3B32",
-    danger_hover="#BC332B",
-    danger_soft="rgba(207, 59, 50, 26)",
-    info="#2F6FB3",
-    thumb_bg="#EDEEF1",
-    scrollbar="#C9CBD2",
-    scrollbar_hover="#B0B3BC",
-    shadow="rgba(20, 22, 28, 34)",
+    success="#3D8A54",
+    success_soft="rgba(61, 138, 84, 30)",
+    warning="#B7791F",
+    warning_soft="rgba(183, 121, 31, 32)",
+    danger="#D4483C",
+    danger_hover="#E15749",
+    danger_soft="rgba(212, 72, 60, 30)",
+    info="#3B6FE0",
+    thumb_bg="#EDE2D7",
+    scrollbar="#DFD1C3",
+    scrollbar_hover="#CBB9A8",
+    shadow="rgba(90, 63, 42, 34)",
     categories=_CATEGORY_LIGHT,
 )
 
@@ -204,11 +210,12 @@ class Space:
 
 
 class Radius:
-    xs = 3
-    sm = 5
-    md = 7
-    lg = 10
-    xl = 14
+    xs = 4
+    sm = 7
+    md = 10
+    lg = 14
+    xl = 18
+    xxl = 22
     pill = 999
 
 

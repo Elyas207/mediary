@@ -127,6 +127,7 @@ class WrappedLabel(QLabel):
         self.setWordWrap(True)
         self._wrap_width = width
         self.setFixedWidth(width)
+
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
     def set_wrap_width(self, width: int) -> None:
@@ -389,6 +390,10 @@ class TagChip(QFrame):
         super().__init__(parent)
         self.setObjectName("TagChip")
         self.name = name
+        # In a row layout a chip would otherwise stretch to the tallest
+        # sibling and render as a tall slab rather than a pill.
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        self.setFixedHeight(22)
         layout = hbox(self, spacing=Space.xs, margins=(Space.sm, 2, Space.xs if removable else Space.sm, 2))
 
         self._label = QLabel(name, self)
@@ -457,11 +462,13 @@ class SegmentedControl(QFrame):
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         self._buttons: dict = {}
+        self._icons: dict = {}
 
         theme = get_theme()
         for entry in options:
             value, text = entry[0], entry[1]
             icon_name = entry[2] if len(entry) > 2 else ""
+            self._icons[value] = icon_name
             btn = QPushButton(text, self)
             btn.setObjectName("SegmentButton")
             btn.setCheckable(True)
@@ -479,14 +486,29 @@ class SegmentedControl(QFrame):
         if self._buttons:
             first = next(iter(self._buttons.values()))
             first.setChecked(True)
+        self.refresh_icons()
 
     def _select(self, value) -> None:
+        self.refresh_icons()
         self.changed.emit(value)
+
+    def refresh_icons(self) -> None:
+        """Re-tint the icons for the current palette and checked state."""
+        theme = get_theme()
+        if theme is None:
+            return
+        for value, btn in self._buttons.items():
+            name = self._icons.get(value)
+            if not name:
+                continue
+            tone = "text" if btn.isChecked() else "muted"
+            btn.setIcon(theme.icon(name, Size.icon_sm, tone))
 
     def set_value(self, value, *, emit: bool = False) -> None:
         btn = self._buttons.get(value)
         if btn is not None and not btn.isChecked():
             btn.setChecked(True)
+            self.refresh_icons()
         if emit:
             self.changed.emit(value)
 
@@ -615,6 +637,13 @@ class EmptyState(QWidget):
         self._title.setText(title)
         if body and self._body is not None:
             self._body.setText(body)
+        self.updateGeometry()
+
+    def set_text_width(self, width: int) -> None:
+        """Re-measure for a narrower container, e.g. the detail rail."""
+        for widget in (self._title, self._body):
+            if widget is not None:
+                widget.set_wrap_width(width)
         self.updateGeometry()
 
 

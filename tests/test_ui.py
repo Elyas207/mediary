@@ -510,9 +510,13 @@ class TestSmartFilingOnTheCard:
         data = {
             "url": "https://example.com/x",
             "title": "Untitled",
+            # Two real heights, so "pick 720p" is a choice the source can
+            # actually honour rather than a label over the 1080p stream.
             "formats": [
                 FormatOption(format_id="1", ext="mp4", width=1920, height=1080,
-                             vcodec="h264", acodec="aac")
+                             vcodec="h264", acodec="aac"),
+                FormatOption(format_id="2", ext="mp4", width=1280, height=720,
+                             vcodec="h264", acodec="aac"),
             ],
         }
         data.update(kwargs)
@@ -586,6 +590,21 @@ class TestSmartFilingOnTheCard:
         card.apply_defaults(DownloadOptions(category="Video", video_quality="720p"))
         assert card.options().category == "Other"
         assert card.options().video_quality == "720p"
+
+    def test_a_quality_the_source_lacks_is_not_silently_substituted(self, card):
+        """A default of 720p against a 1080p-only source must not label the
+        1080p stream "720p" - there is no 720p file to hand over."""
+        from app.models.download import DownloadOptions, FormatOption
+
+        info = self._info(
+            formats=[
+                FormatOption(format_id="1", ext="mp4", width=1920, height=1080,
+                             vcodec="h264", acodec="aac")
+            ]
+        )
+        card.set_info(info)
+        card.apply_defaults(DownloadOptions(video_quality="720p"))
+        assert card.options().video_quality == "best"
 
     def test_the_new_category_sentinel_is_never_a_category(self, qapp, theme, settings):
         from app.ui.views.download_view import NEW_CATEGORY, OptionBar

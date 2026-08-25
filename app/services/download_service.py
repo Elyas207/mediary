@@ -223,6 +223,12 @@ class DownloadService(QObject):
                 return item
 
         self._library.add(item)
+        if options.tags:
+            try:
+                self._library.set_tags(item.id, options.tags)
+                item.tags = list(options.tags)
+            except Exception:  # noqa: BLE001 - the file is safely filed either way
+                log.exception("Could not apply tags to %s", item.file_path)
         return item
 
     @Slot(object)

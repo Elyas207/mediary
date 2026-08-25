@@ -84,6 +84,9 @@ class Settings:
     window_geometry: str = ""
     window_state: str = ""
     last_view: str = "download"
+    #: The right-hand detail rail. Hidden is a real preference on a small
+    #: screen, so it survives a restart.
+    show_detail_pane: bool = True
 
     # --- Custom taxonomy -------------------------------------------------
     custom_categories: list = field(default_factory=list)
